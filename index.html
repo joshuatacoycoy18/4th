@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPS Tracker Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{--bg:#0b1120;--card:rgba(30,41,59,.6);--border:rgba(255,255,255,.08);--cyan:#06b6d4;--green:#10b981;--red:#ef4444;--purple:#8b5cf6;--orange:#f59e0b;--text:#f8fafc;--muted:#94a3b8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);background-image:radial-gradient(circle at 15% 50%,rgba(6,182,212,.08),transparent 30%),radial-gradient(circle at 85% 30%,rgba(16,185,129,.08),transparent 30%);min-height:100vh;padding:20px}
+.dashboard{max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px;padding:15px 25px;background:var(--card);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:16px}
+.header h1{font-size:1.5rem;display:flex;align-items:center;gap:10px}
+.header h1 i{color:var(--cyan)}
+.header-actions{display:flex;align-items:center;gap:15px;flex-wrap:wrap}
+.status-badge{display:flex;align-items:center;gap:8px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);padding:8px 16px;border-radius:50px;font-size:.85rem;font-weight:600;color:var(--green);text-transform:uppercase}
+.status-badge.alert{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.3);color:var(--red)}
+.status-dot{width:8px;height:8px;background:currentColor;border-radius:50%;animation:pulse 1.5s infinite}
+@keyframes pulse{50%{opacity:1}0%,100%{opacity:.7}}
+.weather{display:flex;align-items:center;gap:10px;background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.3);padding:8px 15px;border-radius:50px;font-size:.9rem}
+.weather i{font-size:1.5rem;color:var(--cyan)}
+.data-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px}
+.data-card{background:var(--card);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:16px;padding:15px;display:flex;align-items:center;gap:15px}
+.icon-box{width:45px;height:45px;border-radius:10px;display:flex;justify-content:center;align-items:center;font-size:1.3rem;flex-shrink:0}
+.i-cyan{background:rgba(6,182,212,.15);color:var(--cyan)}
+.i-pur{background:rgba(139,92,246,.15);color:var(--purple)}
+.i-grn{background:rgba(16,185,129,.15);color:var(--green)}
+.i-org{background:rgba(245,158,11,.15);color:var(--orange)}
+.i-red{background:rgba(239,68,68,.15);color:var(--red)}
+.i-blu{background:rgba(59,130,246,.15);color:#3b82f6}
+.i-vio{background:rgba(168,85,247,.15);color:#a855f7}
+.data-info h3{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.data-info p{font-family:'Space Mono',monospace;font-size:1.1rem;font-weight:700;margin-top:2px}
+.main-grid{display:grid;grid-template-columns:2fr 1fr;gap:20px}
+@media(max-width:900px){.main-grid{grid-template-columns:1fr}}
+.panel{background:var(--card);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:16px;padding:20px;display:flex;flex-direction:column}
+.panel-title{font-size:1rem;font-weight:600;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between;color:var(--muted)}
+#map{height:400px;border-radius:12px;z-index:1}
+.leaflet-tile-pane{filter:invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)}
+.chart-container{height:200px;width:100%}
+.leaflet-routing-container{background:rgba(15,23,42,.95)!important;color:#f8fafc!important;border-radius:8px;padding:10px;max-height:300px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.5);font-family:'Inter',sans-serif;width:320px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.1)}
+.leaflet-routing-container h2,.leaflet-routing-container h3{color:var(--cyan)!important;font-size:.9rem}
+.leaflet-routing-alt{border-bottom:1px solid rgba(255,255,255,.1)!important}
+.leaflet-routing-alt table{color:#f8fafc!important;font-size:.8rem}
+.leaflet-routing-container::-webkit-scrollbar{width:6px}
+.leaflet-routing-container::-webkit-scrollbar-thumb{background:var(--cyan);border-radius:3px}
+.hardware-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:15px}
+.hw-card{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:15px;text-align:center;transition:all .3s}
+.hw-card.active{border-color:var(--red);box-shadow:0 0 15px rgba(239,68,68,.3)}
+.hw-card i{font-size:2rem;margin-bottom:10px;color:var(--muted);transition:all .3s}
+.hw-card.active i{color:var(--red);animation:shake .5s infinite}
+@keyframes shake{25%{transform:rotate(10deg)}75%{transform:rotate(-10deg)}}
+.hw-card p{font-size:.8rem;font-weight:600;color:var(--muted)}
+.oled{background:#000;color:#0f0;font-family:'Space Mono',monospace;padding:10px;border-radius:4px;font-size:.9rem;margin-top:5px;border:2px solid #333;min-height:40px;display:flex;align-items:center;justify-content:center}
+.voice-btn{background:linear-gradient(135deg,var(--cyan),#0891b2);color:white;border:none;padding:12px 20px;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;margin-top:15px;transition:transform .2s;width:100%;justify-content:center}
+.voice-btn:hover{transform:scale(1.02)}
+.voice-btn:disabled{opacity:.6;cursor:not-allowed}
+.location-display{background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.3);border-radius:8px;padding:12px;margin-top:15px;text-align:center;font-size:.95rem;font-weight:600;color:var(--cyan);display:flex;align-items:center;justify-content:center;gap:10px;min-height:50px}
+.log-container{height:120px;overflow-y:auto;font-family:'Space Mono',monospace;font-size:.8rem;color:var(--muted);background:rgba(0,0,0,.3);border-radius:8px;padding:10px;border:1px solid rgba(255,255,255,.05)}
+.log-entry{margin-bottom:5px}
+.log-entry .time{color:var(--cyan)}
+.mini-btn{padding:5px 10px;border-radius:6px;font-size:.75rem;cursor:pointer;font-weight:600;transition:all .2s;border:1px solid}
+.btn-red{background:rgba(239,68,68,.15);color:var(--red);border-color:rgba(239,68,68,.3)}
+.btn-red:hover{background:rgba(239,68,68,.3)}
+.btn-green{background:rgba(16,185,129,.15);color:var(--green);border-color:rgba(16,185,129,.3);padding:8px 15px;font-size:.85rem;display:flex;align-items:center;gap:8px}
+.btn-green:hover{background:rgba(16,185,129,.3)}
+.btn-orange{background:rgba(245,158,11,.15);color:var(--orange);border-color:rgba(245,158,11,.3);padding:8px 15px;font-size:.85rem;display:flex;align-items:center;gap:8px}
+.btn-orange.active{background:rgba(245,158,11,.4);box-shadow:0 0 10px rgba(245,158,11,.3)}
+.btn-cyan{background:rgba(6,182,212,.15);color:var(--cyan);border-color:rgba(6,182,212,.3)}
+.autocomplete-container{position:relative;flex:1;min-width:200px}
+.autocomplete-items{position:absolute;border:1px solid rgba(255,255,255,.1);border-top:none;z-index:999;top:100%;left:0;right:0;background:#1e293b;max-height:200px;overflow-y:auto;border-radius:0 0 8px 8px;display:none;box-shadow:0 10px 20px rgba(0,0,0,.5)}
+.autocomplete-item{padding:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05);color:var(--text);font-size:.85rem;transition:background .2s}
+.autocomplete-item:hover{background:#334155}
+.autocomplete-item i{color:var(--cyan);margin-right:8px}
+.routing-panel{background:rgba(0,0,0,.3);padding:15px;border-radius:12px;margin-top:10px}
+.routing-panel .label{font-size:.8rem;color:var(--muted);margin-bottom:8px;font-weight:600}
+.routing-panel .row{display:flex;gap:10px;flex-wrap:wrap}
+.routing-panel input,.routing-panel select{padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.5);color:white}
+#routeInfo{margin-top:10px;font-size:.85rem;color:var(--cyan)}
+.toast{position:fixed;bottom:30px;right:30px;background:var(--red);color:white;padding:15px 25px;border-radius:12px;font-weight:600;display:flex;align-items:center;gap:10px;box-shadow:0 10px 40px rgba(239,68,68,.5);transform:translateY(100px);opacity:0;transition:all .4s cubic-bezier(.68,-.55,.27,1.55);z-index:1000}
+.toast.show{transform:translateY(0);opacity:1}
+</style>
+</head>
+<body>
+<div class="dashboard">
+<header class="header">
+<h1><i class="fa-solid fa-satellite-dish"></i> GPS Tracker Dashboard</h1>
+<div class="header-actions">
+<div class="weather" id="weatherWidget"><i class="fa-solid fa-cloud-sun" id="weatherIcon"></i><span id="weatherText">Loading...</span></div>
+<div class="status-badge" id="statusBadge"><span class="status-dot"></span><span id="statusText">Loading...</span></div>
+</div>
+</header>
+
+<div class="data-grid">
+<div class="data-card"><div class="icon-box i-cyan"><i class="fa-solid fa-location-crosshairs"></i></div><div class="data-info"><h3>Latitude</h3><p id="lat">--</p></div></div>
+<div class="data-card"><div class="icon-box i-pur"><i class="fa-solid fa-map-location-dot"></i></div><div class="data-info"><h3>Longitude</h3><p id="lon">--</p></div></div>
+<div class="data-card"><div class="icon-box i-grn"><i class="fa-solid fa-mountain"></i></div><div class="data-info"><h3>Altitude</h3><p id="alt">--</p></div></div>
+<div class="data-card"><div class="icon-box i-org"><i class="fa-solid fa-satellite"></i></div><div class="data-info"><h3>Satellites</h3><p id="sats">--</p></div></div>
+<div class="data-card"><div class="icon-box i-red"><i class="fa-solid fa-gauge-high"></i></div><div class="data-info"><h3>Speed</h3><p id="speed">0.00 km/h</p></div></div>
+<div class="data-card"><div class="icon-box i-blu"><i class="fa-solid fa-route"></i></div><div class="data-info"><h3>Distance</h3><p id="distance">0.00 km</p></div></div>
+<div class="data-card"><div class="icon-box i-vio"><i class="fa-solid fa-chart-simple"></i></div><div class="data-info"><h3>Avg Speed</h3><p id="avgSpeed">0.00 km/h</p></div></div>
+</div>
+
+<div class="main-grid">
+<div class="panel">
+<div class="panel-title">
+<span><i class="fa-solid fa-map"></i> Live Location Map</span>
+<div style="display:flex;gap:10px">
+<button class="mini-btn btn-cyan" onclick="centerOnMe()"><i class="fa-solid fa-crosshairs"></i> Center on Me</button>
+<button class="mini-btn btn-orange" id="geofenceBtn" onclick="toggleGeofence()"><i class="fa-solid fa-shield-halved"></i> Safe Zone</button>
+<button class="mini-btn btn-red" onclick="clearTrail()"><i class="fa-solid fa-eraser"></i> Clear Trail</button>
+</div>
+</div>
+<div id="map"></div>
+
+<div class="routing-panel" style="border-left:4px solid var(--purple);margin-top:15px">
+<div class="label"><i class="fa-solid fa-magnifying-glass"></i> Search Location (View Only)</div>
+<div class="row">
+<div class="autocomplete-container">
+<input type="text" id="viewLocationInput" placeholder="Enter location to view..." style="width:100%" autocomplete="off">
+<div id="autocomplete-view-list" class="autocomplete-items"></div>
+</div>
+<button onclick="viewLocation()" class="voice-btn" style="width:auto;margin-top:0;padding:10px 20px;background:linear-gradient(135deg,var(--purple),#7e22ce)"><i class="fa-solid fa-map-pin"></i> View</button>
+<button onclick="clearViewLocation()" class="mini-btn btn-red" style="padding:10px 15px"><i class="fa-solid fa-xmark"></i> Clear</button>
+</div>
+</div>
+
+<div class="routing-panel" style="border-left:4px solid var(--cyan)">
+<div class="label"><i class="fa-solid fa-route"></i> Route Planner (Get Directions)</div>
+<div class="row">
+<div class="autocomplete-container">
+<input type="text" id="destinationInput" placeholder="Search destination for routing..." style="width:100%" autocomplete="off">
+<div id="autocomplete-list" class="autocomplete-items"></div>
+</div>
+<select id="travelMode">
+<option value="driving">Car</option>
+<option value="walking">Walking</option>
+<option value="cycling">Motorcycle/Bike</option>
+</select>
+<button onclick="calculateRoute()" class="voice-btn" style="width:auto;margin-top:0;padding:10px 20px"><i class="fa-solid fa-route"></i> Get Route</button>
+<button onclick="clearRoute()" class="mini-btn btn-red" style="padding:10px 15px"><i class="fa-solid fa-xmark"></i> Clear</button>
+</div>
+<div id="routeInfo"></div>
+</div>
+
+<div class="location-display"><i class="fa-solid fa-location-dot"></i><span id="locationText">Click "Voice Assist" to get location name</span></div>
+<button class="voice-btn" id="voiceBtn" onclick="speakLocation()"><i class="fa-solid fa-volume-high"></i> Voice Assist: Tell My Location</button>
+<button class="btn-green" onclick="exportData()" style="margin-top:10px;justify-content:center"><i class="fa-solid fa-file-csv"></i> Export Data to CSV</button>
+</div>
+
+<div class="panel">
+<div class="panel-title"><i class="fa-solid fa-microchip"></i> Hardware Simulation</div>
+<div class="hardware-grid">
+<div class="hw-card" id="ledCard"><i class="fa-solid fa-lightbulb"></i><p>LED</p></div>
+<div class="hw-card" id="buzzerCard"><i class="fa-solid fa-bell"></i><p>BUZZER</p></div>
+<div class="hw-card"><i class="fa-solid fa-tv"></i><p>OLED</p><div class="oled" id="oledText">--</div></div>
+</div>
+<div class="panel-title" style="margin-top:20px"><i class="fa-solid fa-chart-line"></i> Altitude History</div>
+<div class="chart-container"><canvas id="gpsChart"></canvas></div>
+</div>
+</div>
+
+<div class="panel">
+<div class="panel-title"><i class="fa-solid fa-terminal"></i> System Logs</div>
+<div class="log-container" id="logContainer"><div class="log-entry"><span class="time">[System]</span> Dashboard initialized.</div></div>
+</div>
+</div>
+
+<div class="toast" id="alertToast"><i class="fa-solid fa-triangle-exclamation"></i><span id="toastMsg">Warning!</span></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+<script>
+// ========== MAP SETUP ==========
+const map = L.map('map',{zoomControl:false}).setView([14.5995,120.9842],15);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.control.zoom({position:'bottomright'}).addTo(map);
+const gpsIcon = L.divIcon({className:'custom-icon',html:'<div style="background:#06b6d4;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 0 15px #06b6d4"></div>',iconSize:[20,20],iconAnchor:[10,10]});
+const marker = L.marker([14.5995,120.9842],{icon:gpsIcon}).addTo(map);
+const pathPoints = [];
+const polyline = L.polyline(pathPoints,{color:'#06b6d4',weight:3,opacity:.7,dashArray:'5,10'}).addTo(map);
+
+// ========== STATE ==========
+let currentLat=14.5995,currentLon=120.9842,prevLat=null,prevLon=null;
+let totalDistance=0,totalTime=0,timeCount=0,lastWeatherUpdate=0;
+let isFollowing=true,isSpeaking=false,isGeofenceEnabled=false;
+let geofenceCircle=null,routingControl=null,viewMarker=null;
+let selectedViewLat=null,selectedViewLon=null,selectedDestLat=null,selectedDestLon=null;
+const logHistory=[],GEOFENCE_RADIUS=100,timeInterval=2,WEATHER_INTERVAL=600000;
+
+// ========== CHART ==========
+const ctx=document.getElementById('gpsChart').getContext('2d');
+const gradient=ctx.createLinearGradient(0,0,0,200);
+gradient.addColorStop(0,'rgba(6,182,212,.5)');gradient.addColorStop(1,'rgba(6,182,212,0)');
+const gpsChart=new Chart(ctx,{type:'line',data:{labels:[],datasets:[{label:'Altitude',data:[],borderColor:'#06b6d4',backgroundColor:gradient,borderWidth:2,fill:true,tension:.4,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:0},plugins:{legend:{display:false}},scales:{x:{display:false},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#94a3b8',font:{family:'Space Mono',size:10}}}}}});
+
+// ========== HELPERS ==========
+function addLog(msg){
+  const c=document.getElementById('logContainer'),e=document.createElement('div');
+  e.className='log-entry';
+  e.innerHTML=`<span class="time">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+  c.appendChild(e);c.scrollTop=c.scrollHeight;
+  if(c.children.length>50)c.removeChild(c.firstChild);
+}
+function haversine(lat1,lon1,lat2,lon2){
+  const R=6371,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+// ========== GENERIC AUTOCOMPLETE ==========
+function setupAutocomplete(inputId,listId,onSelect){
+  const input=document.getElementById(inputId),list=document.getElementById(listId);
+  let timeout=null;
+  input.addEventListener('input',function(){
+    clearTimeout(timeout);
+    const q=this.value.trim();
+    if(q.length<3){list.style.display='none';return;}
+    timeout=setTimeout(async()=>{
+      try{
+        const r=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&countrycodes=ph`,{headers:{'User-Agent':'RPi-GPS-Tracker/1.0'}});
+        const d=await r.json();
+        list.innerHTML='';
+        if(d.length){
+          d.forEach(item=>{
+            const div=document.createElement('div');
+            div.className='autocomplete-item';
+            div.innerHTML=`<i class="fa-solid fa-location-dot"></i> ${item.display_name}`;
+            div.onclick=()=>{input.value=item.display_name;onSelect(parseFloat(item.lat),parseFloat(item.lon),item.display_name);list.style.display='none';};
+            list.appendChild(div);
+          });
+          list.style.display='block';
+        }else list.style.display='none';
+      }catch(e){console.error(e);}
+    },500);
+  });
+  document.addEventListener('click',e=>{if(e.target!==input&&!list.contains(e.target))list.style.display='none';});
+  return input;
+}
+const viewInput=setupAutocomplete('viewLocationInput','autocomplete-view-list',(lat,lon,name)=>{selectedViewLat=lat;selectedViewLon=lon;addLog(`View selected: ${name}`);});
+const destInput=setupAutocomplete('destinationInput','autocomplete-list',(lat,lon,name)=>{selectedDestLat=lat;selectedDestLon=lon;addLog(`Destination selected: ${name}`);});
+
+// ========== WEATHER ==========
+async function updateWeather(lat,lon){
+  try{
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+    const d=await r.json();
+    if(d.current_weather){
+      document.getElementById('weatherText').innerText=`${d.current_weather.temperature}°C, Wind: ${d.current_weather.windspeed} km/h`;
+      document.getElementById('weatherIcon').className=`fa-solid fa-${weatherIcon(d.current_weather.weathercode)}`;
+    }
+  }catch(e){document.getElementById('weatherText').innerText='Unavailable';}
+}
+function weatherIcon(c){
+  return c===0?'sun':c<=3?'cloud-sun':(c===45||c===48)?'smog':c<=67?'cloud-rain':c<=77?'snowflake':c<=82?'cloud-showers-heavy':c<=99?'cloud-bolt':'cloud-sun';
+}
+
+// ========== GEOCODING & VOICE ==========
+async function getLocationName(lat,lon){
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&addressdetails=1&accept-language=en`,{headers:{'User-Agent':'RPi-GPS-Tracker/1.0'}});
+    const d=await r.json();
+    if(!d?.address)return null;
+    const a=d.address;
+    const brgy=a.suburb||a.village||a.neighbourhood||a.hamlet||'';
+    const city=a.city||a.town||a.municipality||a.county||'';
+    const st=a.state||a.province||'';
+    const parts=[brgy,city,st].filter(Boolean);
+    return{full:parts.length?parts.join(', '):d.display_name};
+  }catch(e){return null;}
+}
+async function speakLocation(){
+  if(isSpeaking)return;
+  const btn=document.getElementById('voiceBtn');btn.disabled=true;isSpeaking=true;
+  addLog("Voice Assist: Fetching...");
+  const loc=await getLocationName(currentLat,currentLon);
+  const alt=document.getElementById('alt').innerText, sats=document.getElementById('sats').innerText, spd=document.getElementById('speed').innerText;
+  let txt;
+  if(loc?.full){
+    document.getElementById('locationText').innerText=loc.full;
+    txt=`You are in ${loc.full}. Latitude ${currentLat.toFixed(6)}, Longitude ${currentLon.toFixed(6)}. Altitude ${alt}. Speed ${spd}. Satellites ${sats}.`;
+  }else{
+    document.getElementById('locationText').innerText="Location unavailable";
+    txt=`Latitude ${currentLat.toFixed(6)}, Longitude ${currentLon.toFixed(6)}. Altitude ${alt}. Speed ${spd}. Satellites ${sats}.`;
+  }
+  if('speechSynthesis'in window){
+    const u=new SpeechSynthesisUtterance(txt);u.rate=.9;
+    u.onend=()=>{isSpeaking=false;btn.disabled=false;addLog("Voice finished.");};
+    u.onerror=()=>{isSpeaking=false;btn.disabled=false;};
+    speechSynthesis.speak(u);
+  }else{isSpeaking=false;btn.disabled=false;}
+}
+
+// ========== GEOFENCE ==========
+function toggleGeofence(){
+  const btn=document.getElementById('geofenceBtn');
+  if(isGeofenceEnabled){
+    if(geofenceCircle)map.removeLayer(geofenceCircle);
+    geofenceCircle=null;isGeofenceEnabled=false;btn.classList.remove('active');addLog("Geofence off.");
+  }else{
+    geofenceCircle=L.circle([currentLat,currentLon],{color:'#f59e0b',fillColor:'#f59e0b',fillOpacity:.15,radius:GEOFENCE_RADIUS,weight:2}).addTo(map);
+    isGeofenceEnabled=true;btn.classList.add('active');addLog(`Geofence: ${GEOFENCE_RADIUS}m radius.`);
+  }
+}
+function checkGeofence(lat,lon){
+  if(!isGeofenceEnabled||!geofenceCircle)return false;
+  return haversine(lat,lon,geofenceCircle.getLatLng().lat,geofenceCircle.getLatLng().lng)*1000>GEOFENCE_RADIUS;
+}
+
+// ========== TRAIL & CENTER ==========
+function clearTrail(){
+  pathPoints.length=0;polyline.setLatLngs(pathPoints);
+  totalDistance=0;totalTime=0;
+  document.getElementById('distance').innerText='0.00 km';
+  document.getElementById('avgSpeed').innerText='0.00 km/h';
+  addLog("Trail cleared.");
+}
+function centerOnMe(){isFollowing=true;map.flyTo([currentLat,currentLon],16);addLog("Centered on GPS.");}
+
+// ========== EXPORT CSV ==========
+function exportData(){
+  if(!logHistory.length){alert("No data yet.");return;}
+  let csv="Timestamp,Latitude,Longitude,Altitude,Speed,Satellites\n";
+  logHistory.forEach(e=>{csv+=`${e.timestamp},${e.latitude},${e.longitude},${e.altitude},${e.speed},${e.satellites}\n`;});
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`gps_data_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  addLog(`Exported ${logHistory.length} records.`);
+}
+
+// ========== VIEW LOCATION ==========
+async function viewLocation(){
+  const q=viewInput.value.trim();
+  if(!q){alert("Enter a location.");return;}
+  addLog(`Searching: ${q}...`);
+  try{
+    let lat=selectedViewLat,lon=selectedViewLon,name=q;
+    if(lat===null||lon===null){
+      const r=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=ph`,{headers:{'User-Agent':'RPi-GPS-Tracker/1.0'}});
+      const d=await r.json();
+      if(!d.length){addLog("Not found.");return;}
+      lat=parseFloat(d[0].lat);lon=parseFloat(d[0].lon);name=d[0].display_name;
+    }
+    map.setView([lat,lon],16);
+    if(viewMarker)map.removeLayer(viewMarker);
+    viewMarker=L.marker([lat,lon]).addTo(map).bindPopup(`<b>${name}</b>`).openPopup();
+    isFollowing=false;
+    addLog(`Found: ${name}`);
+  }catch(e){addLog(`Error: ${e.message}`);}
+}
+function clearViewLocation(){
+  if(viewMarker){map.removeLayer(viewMarker);viewMarker=null;}
+  viewInput.value='';selectedViewLat=null;selectedViewLon=null;
+  addLog("View cleared.");
+}
+
+// ========== ROUTING ==========
+async function calculateRoute(){
+  const txt=destInput.value;
+  const mode=document.getElementById('travelMode').value;
+  const info=document.getElementById('routeInfo');
+  if(!txt){info.innerText="Enter destination.";return;}
+  info.innerText="Searching...";
+  try{
+    let dLat=selectedDestLat,dLon=selectedDestLon;
+    if(dLat===null||dLon===null){
+      const r=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(txt)}&format=json&limit=1`,{headers:{'User-Agent':'RPi-GPS-Tracker/1.0'}});
+      const d=await r.json();
+      if(!d.length){info.innerText="Not found.";return;}
+      dLat=parseFloat(d[0].lat);dLon=parseFloat(d[0].lon);
+    }
+    info.innerText=`Route to: ${txt}`;
+    if(routingControl)map.removeControl(routingControl);
+    const profile=mode==='walking'?'foot':mode==='cycling'?'bike':'car';
+    routingControl=L.Routing.control({
+      waypoints:[L.latLng(currentLat,currentLon),L.latLng(dLat,dLon)],
+      routeWhileDragging:false,addWaypoints:false,draggableWaypoints:false,
+      fitSelectedRoutes:true,showAlternatives:false,
+      lineOptions:{styles:[{color:'#06b6d4',opacity:.8,weight:5}]},
+      router:L.Routing.osrmv1({serviceUrl:`https://routing.openstreetmap.de/routed-${profile}/route/v1`,profile})
+    }).addTo(map);
+    routingControl.on('routesfound',e=>{
+      const s=e.routes[0].summary;
+      const km=(s.totalDistance/1000).toFixed(2),min=Math.round(s.totalTime/60);
+      info.innerHTML=`<i class="fa-solid fa-check-circle"></i> Distance: <b>${km} km</b> | Est: <b>${min} mins</b> (${mode})`;
+      addLog(`Route: ${km}km, ${min}mins`);
+      isFollowing=false;
+    });
+    routingControl.on('routingerror',()=>info.innerText="Route error. Try again.");
+  }catch(e){info.innerText="Connection error.";}
+}
+function clearRoute(){
+  if(routingControl){map.removeControl(routingControl);routingControl=null;}
+  destInput.value='';document.getElementById('routeInfo').innerText='';
+  selectedDestLat=null;selectedDestLon=null;addLog("Route cleared.");
+}
+
+// ========== MAIN DATA LOOP ==========
+function updateData(){
+  fetch('/get_gps').then(r=>r.json()).then(data=>{
+    currentLat=data.latitude;currentLon=data.longitude;
+    document.getElementById('lat').innerText=data.latitude.toFixed(6);
+    document.getElementById('lon').innerText=data.longitude.toFixed(6);
+    document.getElementById('alt').innerText=data.altitude.toFixed(2)+' m';
+    document.getElementById('sats').innerText=data.satellites;
+    
+    let speed=0;
+    if(prevLat!==null){
+      const d=haversine(prevLat,prevLon,data.latitude,data.longitude);
+      if(d>0.0001){
+        totalDistance+=d;totalTime+=timeInterval;
+        speed=d*(3600/timeInterval);
+        document.getElementById('speed').innerText=speed.toFixed(2)+' km/h';
+        document.getElementById('distance').innerText=totalDistance.toFixed(3)+' km';
+        document.getElementById('avgSpeed').innerText=(totalDistance/(totalTime/3600)).toFixed(2)+' km/h';
+        pathPoints.push([data.latitude,data.longitude]);
+        if(pathPoints.length>500)pathPoints.shift();
+        polyline.setLatLngs(pathPoints);
+      }
+    }
+    prevLat=data.latitude;prevLon=data.longitude;
+    
+    logHistory.push({timestamp:new Date().toISOString(),latitude:data.latitude.toFixed(6),longitude:data.longitude.toFixed(6),altitude:data.altitude.toFixed(2),speed:speed.toFixed(2),satellites:data.satellites});
+    if(logHistory.length>1000)logHistory.shift();
+    
+    if(Date.now()-lastWeatherUpdate>WEATHER_INTERVAL){updateWeather(data.latitude,data.longitude);lastWeatherUpdate=Date.now();}
+    
+    if(checkGeofence(data.latitude,data.longitude)){
+      addLog("ALERT: Outside safe zone!");
+      const t=document.getElementById('alertToast');
+      document.getElementById('toastMsg').innerText='Warning: Outside Safe Zone!';
+      t.classList.add('show');setTimeout(()=>t.classList.remove('show'),5000);
+    }
+    
+    const badge=document.getElementById('statusBadge');
+    document.getElementById('statusText').innerText=data.status;
+    badge.className=(data.satellites<4||data.status==="Geofence Alert")?"status-badge alert":"status-badge";
+    
+    document.getElementById('ledCard').classList.toggle('active',data.buzzer);
+    document.getElementById('buzzerCard').classList.toggle('active',data.buzzer);
+    document.getElementById('oledText').innerText=data.oled_message;
+    
+    marker.setLatLng([data.latitude,data.longitude]);
+    if(isFollowing)map.panTo([data.latitude,data.longitude]);
+    
+    timeCount++;
+    gpsChart.data.labels.push(timeCount);
+    gpsChart.data.datasets[0].data.push(data.altitude);
+    if(gpsChart.data.labels.length>30){gpsChart.data.labels.shift();gpsChart.data.datasets[0].data.shift();}
+    gpsChart.update();
+  }).catch(e=>console.error(e));
+}
+
+setInterval(updateData,2000);
+updateData();
+addLog("System ready.");
+</script>
+</body>
+</html>
