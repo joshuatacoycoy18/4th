@@ -75,26 +75,30 @@ def oled_display(lines):
 
 def update_hardware(lat, lon, alt, sats):
     """Update LED, Buzzer, OLED based on satellite count.
-       FIXED: Tuloy ang LED/Buzzer kahit walang OLED."""
+       
+       LED LOGIC:
+       - Satellites >= 4 (strong signal) -> LED HIGH (ON)  [NORMAL/GREEN]
+       - Satellites < 4  (weak signal)   -> LED LOW  (OFF) + Buzzer beep  [ALERT]
+    """
     if not HARDWARE_AVAILABLE:
         return
     try:
-        if sats < 4:
-            # WEAK SIGNAL -> LED ON, Buzzer ON
+        if sats >= 4:
+            # STRONG SIGNAL -> LED ON (indicator na may GPS fix)
             GPIO.output(LED_PIN, True)
-            GPIO.output(BUZZER_PIN, True)
-            oled_display(["! WEAK SIGNAL", f"Sats: {sats}/12", f"Lat: {lat:.4f}", f"Lon: {lon:.4f}"])
-            gps_data["buzzer"] = True
-            gps_data["led"] = True
-            gps_data["oled_message"] = "WEAK SIGNAL!"
-        else:
-            # STRONG SIGNAL -> LED OFF, Buzzer OFF
-            GPIO.output(LED_PIN, False)
             GPIO.output(BUZZER_PIN, False)
             oled_display(["GPS ACTIVE", f"Sats: {sats}/12", f"Alt: {alt:.1f}m", f"Lat: {lat:.4f}"])
             gps_data["buzzer"] = False
-            gps_data["led"] = False
+            gps_data["led"] = True
             gps_data["oled_message"] = "GPS ACTIVE"
+        else:
+            # WEAK SIGNAL -> LED OFF + Buzzer beep (alert)
+            GPIO.output(LED_PIN, False)
+            GPIO.output(BUZZER_PIN, True)
+            oled_display(["! WEAK SIGNAL", f"Sats: {sats}/12", f"Lat: {lat:.4f}", f"Lon: {lon:.4f}"])
+            gps_data["buzzer"] = True
+            gps_data["led"] = False
+            gps_data["oled_message"] = "WEAK SIGNAL!"
     except Exception as e:
         print(f"Hardware update error: {e}")
 
