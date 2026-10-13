@@ -12,7 +12,7 @@ try:
     GPS_AVAILABLE = True
 except ImportError:
     GPS_AVAILABLE = False
-    print("⚠️ GPS libraries not installed.")
+    print("[WARN] GPS libraries not installed.")
 
 # ============================================
 # HARDWARE LIBRARIES (LED, Buzzer, OLED)
@@ -26,7 +26,7 @@ try:
     HARDWARE_AVAILABLE = True
 except ImportError as e:
     HARDWARE_AVAILABLE = False
-    print(f"⚠️ Hardware libraries not installed: {e}")
+    print(f"[WARN] Hardware libraries not installed: {e}")
 
 app = Flask(__name__)
 
@@ -43,18 +43,22 @@ if HARDWARE_AVAILABLE:
         GPIO.setwarnings(False)
         GPIO.setup(LED_PIN, GPIO.OUT)
         GPIO.setup(BUZZER_PIN, GPIO.OUT)
-        
+        print("[OK] LED and Buzzer initialized (GPIO 18, GPIO 23)")
+    except Exception as e:
+        print(f"[WARN] GPIO init failed: {e}")
+
+    try:
         i2c = busio.I2C(board.SCL, board.SDA)
         oled = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c, addr=0x3C)
         oled.fill(0)
         oled.show()
-        print("✅ Hardware ready: LED, Buzzer, OLED")
+        print("[OK] OLED connected (0x3C)")
     except Exception as e:
-        print(f"⚠️ OLED not connected: {e}")
+        print(f"[WARN] OLED not connected: {e}")
         oled = None
 
 def oled_display(lines):
-    """Display up to 4 lines on OLED."""
+    """Display up to 4 lines on OLED. Skip kung walang OLED."""
     if oled is None:
         return
     try:
@@ -70,11 +74,13 @@ def oled_display(lines):
         pass
 
 def update_hardware(lat, lon, alt, sats):
-    """Update LED, Buzzer, OLED based on satellite count."""
-    if not HARDWARE_AVAILABLE or oled is None:
+    """Update LED, Buzzer, OLED based on satellite count.
+       FIXED: Tuloy ang LED/Buzzer kahit walang OLED."""
+    if not HARDWARE_AVAILABLE:
         return
     try:
         if sats < 4:
+            # WEAK SIGNAL -> LED ON, Buzzer ON
             GPIO.output(LED_PIN, True)
             GPIO.output(BUZZER_PIN, True)
             oled_display(["! WEAK SIGNAL", f"Sats: {sats}/12", f"Lat: {lat:.4f}", f"Lon: {lon:.4f}"])
@@ -82,14 +88,15 @@ def update_hardware(lat, lon, alt, sats):
             gps_data["led"] = True
             gps_data["oled_message"] = "WEAK SIGNAL!"
         else:
+            # STRONG SIGNAL -> LED OFF, Buzzer OFF
             GPIO.output(LED_PIN, False)
             GPIO.output(BUZZER_PIN, False)
             oled_display(["GPS ACTIVE", f"Sats: {sats}/12", f"Alt: {alt:.1f}m", f"Lat: {lat:.4f}"])
             gps_data["buzzer"] = False
             gps_data["led"] = False
             gps_data["oled_message"] = "GPS ACTIVE"
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Hardware update error: {e}")
 
 # ============================================
 # GLOBAL STATE
@@ -115,20 +122,20 @@ def real_gps_reader():
     ser = None
     retries = 0
 
-    print(f"📡 Connecting to GPS on {PORT}...")
+    print(f"[INFO] Connecting to GPS on {PORT}...")
 
     while ser is None:
         try:
             ser = serial.Serial(PORT, baudrate=BAUD, timeout=1)
-            print(f"✅ GPS connected on {PORT}")
+            print(f"[OK] GPS connected on {PORT}")
             gps_data["status"] = "GPS Connected"
         except serial.SerialException as e:
             retries += 1
-            print(f"❌ GPS failed ({retries}): {e}")
+            print(f"[FAIL] GPS failed ({retries}): {e}")
             gps_data["status"] = "GPS Disconnected"
             time.sleep(3)
             if retries > 5:
-                print("⚠️ Falling back to MOCK mode.")
+                print("[WARN] Falling back to MOCK mode.")
                 mock_gps_reader()
                 return
 
@@ -161,7 +168,7 @@ def real_gps_reader():
                         pass
             time.sleep(0.1)
         except serial.SerialException as e:
-            print(f"❌ Read error: {e}")
+            print(f"[FAIL] Read error: {e}")
             gps_data["status"] = "GPS Lost"
             time.sleep(2)
 
@@ -169,7 +176,7 @@ def real_gps_reader():
 # MOCK READER (Fallback kapag walang GPS)
 # ============================================
 def mock_gps_reader():
-    print("🎭 Mock GPS activated.")
+    print("[MOCK] Mock GPS activated.")
     gps_data["status"] = "Mock Mode"
 
     while True:
@@ -192,7 +199,7 @@ def mock_gps_reader():
 if GPS_AVAILABLE:
     gps_thread = threading.Thread(target=real_gps_reader, daemon=True)
 else:
-    print("⚠️ GPS libraries not available. Using mock mode.")
+    print("[WARN] GPS libraries not available. Using mock mode.")
     gps_thread = threading.Thread(target=mock_gps_reader, daemon=True)
 gps_thread.start()
 
