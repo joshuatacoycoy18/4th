@@ -3,58 +3,193 @@ import threading
 import time
 import random
 
+# GPS
+try:
+    import serial
+    import pynmea2
+    GPS_AVAILABLE = True
+except ImportError:
+    GPS_AVAILABLE = False
+    print("⚠️ GPS libraries not installed.")
+
+# Hardware (LED, Buzzer, OLED)
+try:
+    import RPi.GPIO as GPIO
+    import board
+    import busio
+    import adafruit_ssd1306
+    from PIL import Image, ImageDraw, ImageFont
+    HARDWARE_AVAILABLE = True
+except ImportError as e:
+    HARDWARE_AVAILABLE = False
+    print(f"⚠️ Hardware libraries not installed: {e}")
+
 app = Flask(__name__)
 
-# Dito natin i-save ang GPS data at Hardware status
+# ============================================
+# HARDWARE SETUP
+# ============================================
+LED_PIN = 18
+BUZZER_PIN = 23
+oled = None
+
+if HARDWARE_AVAILABLE:
+    try:
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
+        GPIO.setup(LED_PIN, GPIO.OUT)
+        GPIO.setup(BUZZER_PIN, GPIO.OUT)
+        
+        i2c = busio.I2C(board.SCL, board.SDA)
+        oled = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c, addr=0x3C)
+        oled.fill(0)
+        oled.show()
+        print("✅ Hardware ready: LED (GPIO 18), Buzzer (GPIO 23), OLED (0x3C)")
+    except Exception as e:
+        print(f"❌ Hardware init failed: {e}")
+        HARDWARE_AVAILABLE = False
+        oled = None
+
+def oled_display(lines):
+    """I-display ang hanggang 4 na linya sa OLED."""
+    if not HARDWARE_AVAILABLE or oled is None:
+        return
+    try:
+        oled.fill(0)
+        img = Image.new("1", (oled.width, oled.height))
+        draw = ImageDraw.Draw(img)
+        font = ImageFont.load_default()
+        for i, line in enumerate(lines[:4]):
+            draw.text((0, i * 16), str(line)[:20], font=font, fill=255)
+        oled.image(img)
+        oled.show()
+    except Exception as e:
+        print(f"OLED error: {e}")
+
+def update_hardware(lat, lon, alt, sats):
+    """I-update ang LED, Buzzer, at OLED base sa satellite count."""
+    if not HARDWARE_AVAILABLE:
+        return
+    if sats < 4:
+        GPIO.output(LED_PIN, True)
+        GPIO.output(BUZZER_PIN, True)
+        oled_display(["! WEAK SIGNAL", f"Sats: {sats}/12", f"Lat: {lat:.4f}", f"Lon: {lon:.4f}"])
+        gps_data["buzzer"] = True
+        gps_data["led"] = True
+        gps_data["oled_message"] = "WEAK SIGNAL!"
+    else:
+        GPIO.output(LED_PIN, False)
+        GPIO.output(BUZZER_PIN, False)
+        oled_display(["GPS ACTIVE", f"Sats: {sats}/12", f"Alt: {alt:.1f}m", f"Lat: {lat:.4f}"])
+        gps_data["buzzer"] = False
+        gps_data["led"] = False
+        gps_data["oled_message"] = "GPS ACTIVE"
+
+# ============================================
+# GLOBAL STATE
+# ============================================
 gps_data = {
     "latitude": 14.5995,
     "longitude": 120.9842,
     "altitude": 0,
     "satellites": 0,
-    "status": "Mock Mode (No Hardware)",
+    "status": "Initializing...",
     "buzzer": False,
     "led": False,
-    "oled_message": "System Booting...",
+    "oled_message": "Booting...",
     "geofence_alert": False
 }
 
-def mock_gps_reader():
-    # Simulate Geofence center
-    safe_zone_lat = 14.5995
-    safe_zone_lon = 120.9842
-    
+# ============================================
+# REAL GPS READER
+# ============================================
+def real_gps_reader():
+    PORT = '/dev/ttyAMA0'  # Palitan ng '/dev/ttyS0' o '/dev/serial0' kung ayaw gumana
+    BAUD = 9600
+    ser = None
+    retries = 0
+
+    oled_display(["Connecting", "to GPS...", "", ""])
+
+    while ser is None:
+        try:
+            ser = serial.Serial(PORT, baudrate=BAUD, timeout=1)
+            print(f"✅ GPS connected on {PORT}")
+            gps_data["status"] = "GPS Connected"
+        except serial.SerialException as e:
+            retries += 1
+            print(f"❌ GPS failed (attempt {retries}): {e}")
+            gps_data["status"] = "GPS Disconnected"
+            oled_display(["GPS not found", f"Retry {retries}...", "", ""])
+            time.sleep(3)
+            if retries > 5:
+                print("⚠️ Falling back to MOCK mode.")
+                mock_gps_reader()
+                return
+
     while True:
-        # Gumagalaw nang bahagya para kunwari gumagalaw ka
+        try:
+            if ser.in_waiting > 0:
+                line = ser.readline().decode('utf-8', errors='ignore').strip()
+                if line.startswith('$GPGGA') or line.startswith('$GPRMC'):
+                    try:
+                        msg = pynmea2.parse(line)
+                        
+                        if hasattr(msg, 'latitude') and msg.latitude != 0.0:
+                            gps_data["latitude"] = msg.latitude
+                            gps_data["longitude"] = msg.longitude
+                            gps_data["status"] = "GPS Active"
+                        
+                        if hasattr(msg, 'altitude') and msg.altitude:
+                            gps_data["altitude"] = float(msg.altitude)
+                        
+                        if hasattr(msg, 'num_sats') and msg.num_sats:
+                            gps_data["satellites"] = int(msg.num_sats)
+                        
+                        update_hardware(
+                            gps_data["latitude"],
+                            gps_data["longitude"],
+                            gps_data["altitude"],
+                            gps_data["satellites"]
+                        )
+                    except (pynmea2.ParseError, ValueError):
+                        pass
+            time.sleep(0.1)
+        except serial.SerialException as e:
+            print(f"❌ Read error: {e}")
+            gps_data["status"] = "GPS Lost"
+            time.sleep(2)
+
+# ============================================
+# MOCK READER (Fallback)
+# ============================================
+def mock_gps_reader():
+    print("🎭 Mock GPS activated.")
+    gps_data["status"] = "Mock Mode"
+    oled_display(["MOCK MODE", "No GPS signal", "", ""])
+
+    while True:
         gps_data["latitude"] += random.uniform(-0.0002, 0.0002)
         gps_data["longitude"] += random.uniform(-0.0002, 0.0002)
         gps_data["altitude"] = random.uniform(10, 50)
         gps_data["satellites"] = random.randint(1, 12)
         
-        # Simulate Hardware Logic
-        if gps_data["satellites"] < 4:
-            gps_data["buzzer"] = True
-            gps_data["led"] = True
-            gps_data["oled_message"] = "WEAK SIGNAL!"
-            gps_data["status"] = "Alert: Weak GPS"
-        else:
-            gps_data["buzzer"] = False
-            gps_data["led"] = False
-            gps_data["oled_message"] = "GPS ACTIVE"
-            gps_data["status"] = "Connected"
-            
-        # Simulate Geofence Alert (10% chance na lumabas sa safe zone)
-        if random.random() < 0.1:
-            gps_data["geofence_alert"] = True
-            gps_data["buzzer"] = True
-            gps_data["led"] = True
-            gps_data["oled_message"] = "OUTSIDE SAFE ZONE!"
-            gps_data["status"] = "Geofence Alert"
-        else:
-            gps_data["geofence_alert"] = False
-            
+        update_hardware(
+            gps_data["latitude"],
+            gps_data["longitude"],
+            gps_data["altitude"],
+            gps_data["satellites"]
+        )
         time.sleep(2)
 
-gps_thread = threading.Thread(target=mock_gps_reader, daemon=True)
+# ============================================
+# START GPS THREAD
+# ============================================
+if GPS_AVAILABLE:
+    gps_thread = threading.Thread(target=real_gps_reader, daemon=True)
+else:
+    print("⚠️ GPS libraries not available. Using mock mode.")
+    gps_thread = threading.Thread(target=mock_gps_reader, daemon=True)
 gps_thread.start()
 
 @app.route('/')
@@ -66,4 +201,12 @@ def get_gps():
     return jsonify(gps_data)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    try:
+        app.run(host='0.0.0.0', port=5000, debug=False)
+    finally:
+        if HARDWARE_AVAILABLE:
+            GPIO.cleanup()
+            if oled:
+                oled.fill(0)
+                oled.show()
+        print("Cleanup done.")
