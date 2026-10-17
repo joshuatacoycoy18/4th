@@ -1,233 +1,183 @@
-from flask import Flask, render_template, jsonify
+"""
+Sound & Raindrop Monitor - OFFLINE version (USB cable, no internet needed)
+
+The Raspberry Pi Pico reads the sensors and sends each reading through the
+USB cable to the computer running this program (Windows PC or Raspberry Pi).
+This program reads the USB port, serves a web page, and tells the Pico when
+to sound the buzzer.
+
+Nothing is made up: until the Pico sends data, the page says
+"Waiting for sensor data".
+
+Run:   python app.py
+Open:  http://localhost:5000            (on the same computer)
+       http://<IP-shown-at-startup>:5000 (from another device on the same
+                                           Wi-Fi / hotspot)
+       landing page = /     dashboard = /dashboard
+
+Important: close Thonny first - only one program can use the USB port.
+
+Optional environment variables:
+  SERIAL_PORT  e.g. COM5 or /dev/ttyACM0   (default: auto-detect)
+  HOST         default 0.0.0.0  (use 127.0.0.1 to allow only this computer)
+  PORT         default 5000
+"""
+import json
+import os
+import socket
 import threading
 import time
-import random
+from collections import deque
 
-# ============================================
-# GPS LIBRARIES
-# ============================================
-try:
-    import serial
-    import pynmea2
-    GPS_AVAILABLE = True
-except ImportError:
-    GPS_AVAILABLE = False
-    print("[WARN] GPS libraries not installed.")
+import serial
+from serial.tools import list_ports
+from flask import Flask, jsonify, render_template, request
 
-# ============================================
-# HARDWARE LIBRARIES (LED, Buzzer, OLED)
-# ============================================
-try:
-    import RPi.GPIO as GPIO
-    import board
-    import busio
-    import adafruit_ssd1306
-    from PIL import Image, ImageDraw, ImageFont
-    HARDWARE_AVAILABLE = True
-except ImportError as e:
-    HARDWARE_AVAILABLE = False
-    print(f"[WARN] Hardware libraries not installed: {e}")
+# ---------------- Settings ----------------
+SERIAL_PORT = os.environ.get("SERIAL_PORT")      # None = auto-detect
+HOST = os.environ.get("HOST", "0.0.0.0")
+PORT = int(os.environ.get("PORT", "5000"))
+BAUD_RATE = 115200
+HISTORY_SIZE = 120            # readings kept for the charts
+SOUND_ALERT_PERCENT = 70      # buzzer beeps above this sound level
+RAIN_THRESHOLD_PERCENT = 30   # wetness at/above this = "raining"
+OFFLINE_AFTER_SECONDS = 5     # no reading for this long = sensor offline
+
+# ---------------- Shared state ----------------
+history = deque(maxlen=HISTORY_SIZE)
+state = {"buzzer_enabled": True, "buzzer_on": False, "last_seen": 0.0}
+lock = threading.Lock()
 
 app = Flask(__name__)
 
-# ============================================
-# HARDWARE SETUP
-# ============================================
-LED_PIN = 18
-BUZZER_PIN = 23
-oled = None
 
-if HARDWARE_AVAILABLE:
+def clamp_percent(value):
+    return max(0.0, min(100.0, float(value)))
+
+
+def get_local_ip():
+    """Best-effort local IP (works without internet; no data is sent)."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setwarnings(False)
-        GPIO.setup(LED_PIN, GPIO.OUT)
-        GPIO.setup(BUZZER_PIN, GPIO.OUT)
-        print("[OK] LED and Buzzer initialized (GPIO 18, GPIO 23)")
-    except Exception as e:
-        print(f"[WARN] GPIO init failed: {e}")
+        s.connect(("10.255.255.255", 1))   # UDP "connect" sends nothing
+        return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        s.close()
 
-    try:
-        i2c = busio.I2C(board.SCL, board.SDA)
-        oled = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c, addr=0x3C)
-        oled.fill(0)
-        oled.show()
-        print("[OK] OLED connected (0x3C)")
-    except Exception as e:
-        print(f"[WARN] OLED not connected: {e}")
-        oled = None
 
-def oled_display(lines):
-    """Display up to 4 lines on OLED. Skip kung walang OLED."""
-    if oled is None:
-        return
-    try:
-        oled.fill(0)
-        img = Image.new("1", (oled.width, oled.height))
-        draw = ImageDraw.Draw(img)
-        font = ImageFont.load_default()
-        for i, line in enumerate(lines[:4]):
-            draw.text((0, i * 16), str(line)[:20], font=font, fill=255)
-        oled.image(img)
-        oled.show()
-    except Exception:
-        pass
+def find_pico_port():
+    """Return the USB serial port of the Pico (or None)."""
+    if SERIAL_PORT:
+        return SERIAL_PORT
+    ports = list(list_ports.comports())
+    for p in ports:                       # 0x2E8A = Raspberry Pi vendor ID
+        if p.vid == 0x2E8A:
+            return p.device
+    for p in ports:
+        text = (p.description or "") + " " + (p.manufacturer or "")
+        if any(k in text for k in ("MicroPython", "Pico", "USB Serial Device")):
+            return p.device
+    return None
 
-def update_hardware(lat, lon, alt, sats):
-    """Update LED, Buzzer, OLED based on satellite count.
-       
-       LED LOGIC:
-       - Satellites >= 4 (strong signal) -> LED HIGH (ON)  [NORMAL/GREEN]
-       - Satellites < 4  (weak signal)   -> LED LOW  (OFF) + Buzzer beep  [ALERT]
-    """
-    if not HARDWARE_AVAILABLE:
-        return
-    try:
-        if sats >= 4:
-            # STRONG SIGNAL -> LED ON (indicator na may GPS fix)
-            GPIO.output(LED_PIN, True)
-            GPIO.output(BUZZER_PIN, False)
-            oled_display(["GPS ACTIVE", f"Sats: {sats}/12", f"Alt: {alt:.1f}m", f"Lat: {lat:.4f}"])
-            gps_data["buzzer"] = False
-            gps_data["led"] = True
-            gps_data["oled_message"] = "GPS ACTIVE"
-        else:
-            # WEAK SIGNAL -> LED OFF + Buzzer beep (alert)
-            GPIO.output(LED_PIN, False)
-            GPIO.output(BUZZER_PIN, True)
-            oled_display(["! WEAK SIGNAL", f"Sats: {sats}/12", f"Lat: {lat:.4f}", f"Lon: {lon:.4f}"])
-            gps_data["buzzer"] = True
-            gps_data["led"] = False
-            gps_data["oled_message"] = "WEAK SIGNAL!"
-    except Exception as e:
-        print(f"Hardware update error: {e}")
 
-# ============================================
-# GLOBAL STATE
-# ============================================
-gps_data = {
-    "latitude": 14.5995,
-    "longitude": 120.9842,
-    "altitude": 0,
-    "satellites": 0,
-    "status": "Initializing...",
-    "buzzer": False,
-    "led": False,
-    "oled_message": "Booting...",
-    "geofence_alert": False
-}
+def handle_reading(sound, wetness):
+    """Store a reading and return True if the buzzer should be on."""
+    raining = wetness >= RAIN_THRESHOLD_PERCENT
+    alert = raining or sound >= SOUND_ALERT_PERCENT
+    with lock:
+        state["last_seen"] = time.time()
+        state["buzzer_on"] = alert and state["buzzer_enabled"]
+        history.append({
+            "time": time.strftime("%H:%M:%S"),
+            "sound": sound,
+            "wetness": wetness,
+            "raining": raining,
+        })
+        return state["buzzer_on"]
 
-# ============================================
-# REAL GPS READER
-# ============================================
-def real_gps_reader():
-    PORT = '/dev/serial0'
-    BAUD = 9600
-    ser = None
-    retries = 0
 
-    print(f"[INFO] Connecting to GPS on {PORT}...")
+def serial_loop():
+    """Background thread: read lines from the Pico, answer with B1 / B0."""
+    last_msg = None
 
-    while ser is None:
-        try:
-            ser = serial.Serial(PORT, baudrate=BAUD, timeout=1)
-            print(f"[OK] GPS connected on {PORT}")
-            gps_data["status"] = "GPS Connected"
-        except serial.SerialException as e:
-            retries += 1
-            print(f"[FAIL] GPS failed ({retries}): {e}")
-            gps_data["status"] = "GPS Disconnected"
-            time.sleep(3)
-            if retries > 5:
-                print("[WARN] Falling back to MOCK mode.")
-                mock_gps_reader()
-                return
+    def say(msg):
+        nonlocal last_msg
+        if msg != last_msg:          # only print when something changes
+            print(msg, flush=True)
+            last_msg = msg
 
     while True:
+        port = find_pico_port()
+        if not port:
+            say("Pico not found. Plug it in with the USB cable (and close Thonny).")
+            time.sleep(2)
+            continue
         try:
-            if ser.in_waiting > 0:
-                line = ser.readline().decode('utf-8', errors='ignore').strip()
-                if line.startswith('$GPGGA') or line.startswith('$GPRMC'):
+            with serial.Serial(port, BAUD_RATE, timeout=1, write_timeout=1) as ser:
+                ser.reset_input_buffer()      # drop stale data from before
+                say(f"Connected to Pico on {port}")
+                while True:
+                    raw = ser.readline()
+                    if not raw:
+                        continue
                     try:
-                        msg = pynmea2.parse(line)
-                        
-                        if hasattr(msg, 'latitude') and msg.latitude != 0.0:
-                            gps_data["latitude"] = msg.latitude
-                            gps_data["longitude"] = msg.longitude
-                            gps_data["status"] = "GPS Active"
-                        
-                        if hasattr(msg, 'altitude') and msg.altitude:
-                            gps_data["altitude"] = float(msg.altitude)
-                        
-                        if hasattr(msg, 'num_sats') and msg.num_sats:
-                            gps_data["satellites"] = int(msg.num_sats)
-                        
-                        update_hardware(
-                            gps_data["latitude"],
-                            gps_data["longitude"],
-                            gps_data["altitude"],
-                            gps_data["satellites"]
-                        )
-                    except (pynmea2.ParseError, ValueError):
-                        pass
-            time.sleep(0.1)
-        except serial.SerialException as e:
-            print(f"[FAIL] Read error: {e}")
-            gps_data["status"] = "GPS Lost"
+                        data = json.loads(raw.decode("utf-8", "ignore").strip())
+                        sound = round(clamp_percent(data["sound"]), 1)
+                        wetness = round(clamp_percent(data["wetness"]), 1)
+                    except (ValueError, KeyError, TypeError):
+                        continue     # ignore any other text the Pico prints
+                    buzzer_on = handle_reading(sound, wetness)
+                    ser.write(b"B1\n" if buzzer_on else b"B0\n")
+        except PermissionError:
+            say(f"Permission denied on {port}. On Raspberry Pi run: "
+                "sudo usermod -aG dialout $USER   then reboot. "
+                "On Windows, close Thonny. Retrying...")
+            time.sleep(2)
+        except (serial.SerialException, OSError) as err:
+            say(f"Cannot use {port}: {err}. Is Thonny still open? Retrying...")
             time.sleep(2)
 
-# ============================================
-# MOCK READER (Fallback kapag walang GPS)
-# ============================================
-def mock_gps_reader():
-    print("[MOCK] Mock GPS activated.")
-    gps_data["status"] = "Mock Mode"
 
-    while True:
-        gps_data["latitude"] += random.uniform(-0.0002, 0.0002)
-        gps_data["longitude"] += random.uniform(-0.0002, 0.0002)
-        gps_data["altitude"] = random.uniform(10, 50)
-        gps_data["satellites"] = random.randint(1, 12)
-        
-        update_hardware(
-            gps_data["latitude"],
-            gps_data["longitude"],
-            gps_data["altitude"],
-            gps_data["satellites"]
-        )
-        time.sleep(2)
+@app.route("/")
+def landing():
+    return render_template("landing.html")
 
-# ============================================
-# START GPS THREAD
-# ============================================
-if GPS_AVAILABLE:
-    gps_thread = threading.Thread(target=real_gps_reader, daemon=True)
-else:
-    print("[WARN] GPS libraries not available. Using mock mode.")
-    gps_thread = threading.Thread(target=mock_gps_reader, daemon=True)
-gps_thread.start()
 
-# ============================================
-# FLASK ROUTES
-# ============================================
-@app.route('/')
-def index():
-    return render_template('index.html')
+@app.route("/dashboard")
+def dashboard():
+    return render_template("dashboard.html")
 
-@app.route('/get_gps')
-def get_gps():
-    return jsonify(gps_data)
 
-# ============================================
-# MAIN
-# ============================================
-if __name__ == '__main__':
-    try:
-        app.run(host='0.0.0.0', port=5000, debug=False)
-    finally:
-        if HARDWARE_AVAILABLE:
-            GPIO.cleanup()
-            if oled:
-                oled.fill(0)
-                oled.show()
-        print("Cleanup done.")
+@app.route("/api/data")
+def api_data():
+    with lock:
+        connected = (time.time() - state["last_seen"]) < OFFLINE_AFTER_SECONDS
+        return jsonify({
+            "history": list(history),
+            "connected": connected,
+            "buzzer_enabled": state["buzzer_enabled"],
+            "buzzer_on": state["buzzer_on"] and connected,
+            "sound_alert": SOUND_ALERT_PERCENT,
+            "rain_threshold": RAIN_THRESHOLD_PERCENT,
+        })
+
+
+@app.route("/api/buzzer", methods=["POST"])
+def api_buzzer():
+    with lock:
+        state["buzzer_enabled"] = bool((request.get_json(silent=True) or {}).get("enabled", True))
+        if not state["buzzer_enabled"]:
+            state["buzzer_on"] = False
+    return jsonify(ok=True, buzzer_enabled=state["buzzer_enabled"])
+
+
+if __name__ == "__main__":
+    threading.Thread(target=serial_loop, daemon=True).start()
+    print(f"\nDashboard on this computer:  http://localhost:{PORT}/dashboard")
+    if HOST == "0.0.0.0":
+        print(f"From another device (same Wi-Fi/hotspot): "
+              f"http://{get_local_ip()}:{PORT}/dashboard\n", flush=True)
+    # debug is off on purpose: the reloader would start the serial thread twice
+    app.run(host=HOST, port=PORT, debug=False, threaded=True)
