@@ -3,254 +3,679 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GPS Tracker Dashboard - Advanced UI</title>
+<title>GPS Tracker Dashboard | Advanced UI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 :root {
-    --bg: #050914;
-    --card: rgba(15, 23, 42, 0.65);
-    --border: rgba(255, 255, 255, 0.08);
-    --cyan: #06b6d4;
-    --green: #10b981;
-    --red: #ef4444;
-    --purple: #8b5cf6;
-    --orange: #f59e0b;
+    --bg-primary: #030712;
+    --bg-secondary: #0f172a;
+    --card-bg: rgba(15, 23, 42, 0.4);
+    --card-border: rgba(255, 255, 255, 0.06);
+    --cyan: #22d3ee;
+    --cyan-dark: #06b6d4;
+    --green: #34d399;
+    --red: #f87171;
+    --purple: #a78bfa;
+    --orange: #fbbf24;
+    --blue: #60a5fa;
+    --pink: #f472b6;
     --text: #f8fafc;
-    --muted: #94a3b8;
+    --text-muted: #64748b;
+    --text-dim: #475569;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background-color: var(--bg);
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: var(--bg-primary);
     color: var(--text);
-    /* Advanced radial gradients para sa background */
-    background-image: 
-        radial-gradient(circle at 10% 20%, rgba(6, 182, 212, 0.15), transparent 40%),
-        radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.15), transparent 40%),
-        radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.05), transparent 50%);
-    background-attachment: fixed;
     min-height: 100vh;
-    padding: 25px;
+    overflow-x: hidden;
+    position: relative;
 }
 
-.dashboard { max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 25px; }
+/* ============ ANIMATED AURORA BACKGROUND ============ */
+body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: 
+        radial-gradient(circle at 20% 30%, rgba(6, 182, 212, 0.15) 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.15) 0%, transparent 40%),
+        radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.08) 0%, transparent 50%);
+    animation: auroraMove 20s ease-in-out infinite;
+    z-index: -1;
+}
 
-/* --- HEADER --- */
+@keyframes auroraMove {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    33% { transform: translate(5%, -5%) rotate(5deg); }
+    66% { transform: translate(-5%, 5%) rotate(-5deg); }
+}
+
+/* ============ LAYOUT ============ */
+.dashboard {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* ============ HEADER ============ */
 .header {
-    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;
-    padding: 20px 30px;
-    background: var(--card);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 24px 32px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 41, 59, 0.6));
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--card-border);
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
     position: relative;
     overflow: hidden;
 }
 
-/* Animated glowing line sa taas ng header */
 .header::before {
-    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
-    background: linear-gradient(90deg, transparent, var(--cyan), var(--purple), transparent);
-    animation: borderFlow 3s linear infinite;
-}
-@keyframes borderFlow {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 200%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cyan), var(--purple), var(--pink), transparent);
+    animation: borderScan 4s linear infinite;
 }
 
-.header h1 { font-size: 1.6rem; display: flex; align-items: center; gap: 12px; letter-spacing: 0.5px; }
-.header h1 i { color: var(--cyan); text-shadow: 0 0 15px var(--cyan); }
+@keyframes borderScan {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
 
-/* Status Badge with pulse ring */
+.header h1 {
+    font-size: 1.75rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #f8fafc, #22d3ee);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.header h1 i {
+    color: var(--cyan);
+    -webkit-text-fill-color: var(--cyan);
+    font-size: 1.8rem;
+    filter: drop-shadow(0 0 20px rgba(34, 211, 238, 0.6));
+    animation: iconPulse 2s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(34, 211, 238, 0.6)); }
+    50% { transform: scale(1.05); filter: drop-shadow(0 0 30px rgba(34, 211, 238, 0.9)); }
+}
+
+/* Status Badge */
 .status-badge {
-    display: flex; align-items: center; gap: 10px;
-    background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);
-    padding: 10px 20px; border-radius: 50px; font-size: 0.85rem; font-weight: 700;
-    color: var(--green); text-transform: uppercase; letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(52, 211, 153, 0.08);
+    border: 1px solid rgba(52, 211, 153, 0.25);
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--green);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
     position: relative;
-}
-.status-badge.alert {
-    background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: var(--red);
-}
-.status-dot {
-    width: 10px; height: 10px; background-color: currentColor; border-radius: 50%;
-    position: relative;
-}
-.status-dot::after {
-    content: ''; position: absolute; top: -3px; left: -3px; width: 100%; height: 100%;
-    border-radius: 50%; border: 2px solid currentColor;
-    animation: ripple 1.5s infinite ease-out;
-}
-@keyframes ripple {
-    0% { transform: scale(1); opacity: 0.8; }
-    100% { transform: scale(2.5); opacity: 0; }
+    box-shadow: 0 0 30px rgba(52, 211, 153, 0.1);
 }
 
-/* --- DATA CARDS --- */
-.data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 18px; }
+.status-badge.alert {
+    background: rgba(248, 113, 113, 0.08);
+    border-color: rgba(248, 113, 113, 0.25);
+    color: var(--red);
+    box-shadow: 0 0 30px rgba(248, 113, 113, 0.1);
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    background: currentColor;
+    border-radius: 50%;
+    position: relative;
+    box-shadow: 0 0 15px currentColor;
+}
+
+.status-dot::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    opacity: 0.5;
+    animation: ripple 2s ease-out infinite;
+}
+
+@keyframes ripple {
+    0% { transform: scale(0.8); opacity: 0.8; }
+    100% { transform: scale(2); opacity: 0; }
+}
+
+/* ============ DATA GRID ============ */
+.data-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 18px;
+}
+
 .data-card {
-    background: var(--card); backdrop-filter: blur(12px);
-    border: 1px solid var(--border); border-radius: 18px;
-    padding: 18px; display: flex; align-items: center; gap: 15px;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.4));
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
-}
-.data-card:hover {
-    transform: translateY(-5px) scale(1.02);
-    box-shadow: 0 15px 35px rgba(0,0,0,0.4);
-    border-color: rgba(255,255,255,0.15);
+    cursor: default;
 }
 
-/* Left highlight bar sa mga data cards */
 .data-card::before {
-    content: ''; position: absolute; left: 0; top: 0; width: 4px; height: 100%;
-    background: var(--cyan); opacity: 0.7;
-    transition: all 0.3s;
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.1), transparent 50%);
+    opacity: 0;
+    transition: opacity 0.4s;
 }
-.data-card:hover::before { width: 100%; opacity: 0.05; }
 
-.icon-box { width: 50px; height: 50px; border-radius: 14px; display: flex; justify-content: center; align-items: center; font-size: 1.4rem; flex-shrink: 0; }
-.i-cyan { background: rgba(6,182,212,.15); color: var(--cyan); box-shadow: 0 0 20px rgba(6,182,212,.2); }
-.i-pur { background: rgba(139,92,246,.15); color: var(--purple); box-shadow: 0 0 20px rgba(139,92,246,.2); }
-.i-grn { background: rgba(16,185,129,.15); color: var(--green); box-shadow: 0 0 20px rgba(16,185,129,.2); }
-.i-org { background: rgba(245,158,11,.15); color: var(--orange); box-shadow: 0 0 20px rgba(245,158,11,.2); }
-.i-red { background: rgba(239,68,68,.15); color: var(--red); box-shadow: 0 0 20px rgba(239,68,68,.2); }
-.i-blu { background: rgba(59,130,246,.15); color: #3b82f6; box-shadow: 0 0 20px rgba(59,130,246,.2); }
-.i-vio { background: rgba(168,85,247,.15); color: #a855f7; box-shadow: 0 0 20px rgba(168,85,247,.2); }
+.data-card:hover {
+    transform: translateY(-6px);
+    border-color: rgba(34, 211, 238, 0.3);
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(34, 211, 238, 0.2),
+        0 0 60px rgba(34, 211, 238, 0.1);
+}
 
-.data-info h3 { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
-.data-info p { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 1.2rem; font-weight: 800; text-shadow: 0 0 10px rgba(255,255,255,0.1); }
+.data-card:hover::before {
+    opacity: 1;
+}
 
-/* --- MAIN GRID & PANELS --- */
-.main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
-@media(max-width: 900px) { .main-grid { grid-template-columns: 1fr; } }
+.icon-box {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+    position: relative;
+    transition: all 0.4s;
+}
+
+.data-card:hover .icon-box {
+    transform: scale(1.1) rotate(-5deg);
+}
+
+.i-cyan { background: rgba(34, 211, 238, 0.12); color: var(--cyan); box-shadow: 0 0 25px rgba(34, 211, 238, 0.2), inset 0 0 15px rgba(34, 211, 238, 0.1); }
+.i-pur { background: rgba(167, 139, 250, 0.12); color: var(--purple); box-shadow: 0 0 25px rgba(167, 139, 250, 0.2), inset 0 0 15px rgba(167, 139, 250, 0.1); }
+.i-grn { background: rgba(52, 211, 153, 0.12); color: var(--green); box-shadow: 0 0 25px rgba(52, 211, 153, 0.2), inset 0 0 15px rgba(52, 211, 153, 0.1); }
+.i-org { background: rgba(251, 191, 36, 0.12); color: var(--orange); box-shadow: 0 0 25px rgba(251, 191, 36, 0.2), inset 0 0 15px rgba(251, 191, 36, 0.1); }
+.i-red { background: rgba(248, 113, 113, 0.12); color: var(--red); box-shadow: 0 0 25px rgba(248, 113, 113, 0.2), inset 0 0 15px rgba(248, 113, 113, 0.1); }
+.i-blu { background: rgba(96, 165, 250, 0.12); color: var(--blue); box-shadow: 0 0 25px rgba(96, 165, 250, 0.2), inset 0 0 15px rgba(96, 165, 250, 0.1); }
+.i-pnk { background: rgba(244, 114, 182, 0.12); color: var(--pink); box-shadow: 0 0 25px rgba(244, 114, 182, 0.2), inset 0 0 15px rgba(244, 114, 182, 0.1); }
+
+.data-info h3 {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.data-info p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.5px;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+/* ============ MAIN GRID ============ */
+.main-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+}
+
+@media(max-width: 1024px) {
+    .main-grid { grid-template-columns: 1fr; }
+}
 
 .panel {
-    background: var(--card); backdrop-filter: blur(16px);
-    border: 1px solid var(--border); border-radius: 20px;
-    padding: 25px; display: flex; flex-direction: column;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.7), rgba(30, 41, 59, 0.5));
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--card-border);
+    border-radius: 24px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
 }
+
+.panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.5), transparent);
+}
+
 .panel-title {
-    font-size: 1rem; font-weight: 600; margin-bottom: 20px;
-    display: flex; align-items: center; justify-content: space-between; color: var(--muted);
-    text-transform: uppercase; letter-spacing: 1px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
 }
 
-#map { height: 450px; border-radius: 16px; z-index: 1; background: #1e293b; border: 1px solid rgba(255,255,255,0.05); }
-.chart-container { height: 220px; width: 100%; position: relative; }
+.panel-title i {
+    color: var(--cyan);
+    margin-right: 8px;
+}
 
-/* --- HARDWARE CARDS --- */
-.hardware-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 15px; }
+#map {
+    height: 460px;
+    border-radius: 16px;
+    z-index: 1;
+    background: #0f172a;
+    border: 1px solid rgba(34, 211, 238, 0.1);
+    box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.5);
+}
+
+.chart-container {
+    height: 220px;
+    width: 100%;
+    position: relative;
+}
+
+/* ============ HARDWARE CARDS ============ */
+.hardware-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 15px;
+}
+
 .hw-card {
-    background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05);
-    border-radius: 16px; padding: 20px 10px; text-align: center;
-    transition: all 0.4s ease; position: relative; overflow: hidden;
+    background: rgba(3, 7, 18, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 18px;
+    padding: 22px 12px;
+    text-align: center;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
 }
-.hw-card i { font-size: 2.2rem; margin-bottom: 12px; color: #475569; transition: all 0.4s ease; }
-.hw-card p { font-size: 0.75rem; font-weight: 700; color: var(--muted); letter-spacing: 1px; }
 
-/* LED ON Effect */
+.hw-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(34, 211, 238, 0.05), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.4s;
+}
+
+.hw-card i {
+    font-size: 2.2rem;
+    margin-bottom: 14px;
+    color: var(--text-dim);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    display: block;
+}
+
+.hw-card p {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+}
+
+/* LED ON */
 .hw-card.led-on {
-    border-color: var(--green);
-    box-shadow: 0 0 25px rgba(16,185,129,0.4), inset 0 0 20px rgba(16,185,129,0.1);
+    border-color: rgba(52, 211, 153, 0.4);
+    background: rgba(52, 211, 153, 0.05);
+    box-shadow: 0 0 40px rgba(52, 211, 153, 0.3), inset 0 0 30px rgba(52, 211, 153, 0.1);
 }
-.hw-card.led-on i { color: var(--green); text-shadow: 0 0 20px var(--green); }
 
-/* Buzzer ON Effect */
+.hw-card.led-on::before { opacity: 1; }
+
+.hw-card.led-on i {
+    color: var(--green);
+    text-shadow: 0 0 30px var(--green), 0 0 60px var(--green);
+    animation: ledPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes ledPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.85; }
+}
+
+/* Buzzer ON */
 .hw-card.buzzer-on {
-    border-color: var(--red);
-    box-shadow: 0 0 25px rgba(239,68,68,0.4), inset 0 0 20px rgba(239,68,68,0.1);
-}
-.hw-card.buzzer-on i { color: var(--red); animation: buzzShake 0.3s infinite; }
-@keyframes buzzShake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-4px) rotate(-5deg); }
-    75% { transform: translateX(4px) rotate(5deg); }
+    border-color: rgba(248, 113, 113, 0.4);
+    background: rgba(248, 113, 113, 0.05);
+    box-shadow: 0 0 40px rgba(248, 113, 113, 0.3), inset 0 0 30px rgba(248, 113, 113, 0.1);
 }
 
-/* OLED Display */
+.hw-card.buzzer-on::before { opacity: 1; }
+
+.hw-card.buzzer-on i {
+    color: var(--red);
+    text-shadow: 0 0 30px var(--red);
+    animation: buzzerShake 0.3s ease-in-out infinite;
+}
+
+@keyframes buzzerShake {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    25% { transform: translateX(-5px) rotate(-8deg); }
+    75% { transform: translateX(5px) rotate(8deg); }
+}
+
+/* OLED */
 .oled {
-    background: #000; color: #0f0; font-family: ui-monospace, monospace;
-    padding: 12px; border-radius: 8px; font-size: 0.85rem; margin-top: 8px;
-    border: 2px solid #1e293b; min-height: 50px; display: flex; align-items: center; justify-content: center;
-    text-align: center; transition: all 0.3s;
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+    background: #000;
+    color: #22d3ee;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    margin-top: 10px;
+    border: 2px solid #1e293b;
+    min-height: 55px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transition: all 0.4s;
+    box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.9), inset 0 0 30px rgba(34, 211, 238, 0.05);
+    letter-spacing: 1px;
+    font-weight: 700;
 }
-.oled.active { border-color: var(--green); box-shadow: 0 0 15px rgba(16,185,129,0.3), inset 0 0 10px rgba(0,0,0,0.8); }
 
-/* --- BUTTONS --- */
-.voice-btn {
-    background: linear-gradient(135deg, var(--cyan), #0ea5e9);
-    color: white; border: none; padding: 14px 20px; border-radius: 12px;
-    font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 10px;
-    margin-top: 20px; transition: all 0.3s; width: 100%; justify-content: center;
-    box-shadow: 0 4px 15px rgba(6,182,212,0.3); letter-spacing: 0.5px;
+.oled.active {
+    color: var(--green);
+    border-color: rgba(52, 211, 153, 0.5);
+    box-shadow: 
+        inset 0 0 15px rgba(0, 0, 0, 0.9),
+        0 0 25px rgba(52, 211, 153, 0.3),
+        inset 0 0 30px rgba(52, 211, 153, 0.1);
 }
-.voice-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(6,182,212,0.5); }
-.voice-btn:active { transform: translateY(0); }
+
+/* ============ BUTTONS ============ */
+.voice-btn {
+    background: linear-gradient(135deg, var(--cyan-dark), var(--cyan));
+    color: #030712;
+    border: none;
+    padding: 16px 24px;
+    border-radius: 14px;
+    font-weight: 800;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 22px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 100%;
+    justify-content: center;
+    letter-spacing: 0.5px;
+    box-shadow: 0 8px 25px rgba(34, 211, 238, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.voice-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.5s;
+}
+
+.voice-btn:hover::before {
+    transform: translateX(100%);
+}
+
+.voice-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 40px rgba(34, 211, 238, 0.5);
+}
+
+.voice-btn:active {
+    transform: translateY(0);
+}
 
 .mini-btn {
-    padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer;
-    font-weight: 600; transition: all 0.2s; border: 1px solid; display: flex; align-items: center; gap: 6px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 0.3s;
+    border: 1px solid;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: 0.5px;
 }
-.btn-red { background: rgba(239,68,68,.1); color: var(--red); border-color: rgba(239,68,68,.3); }
-.btn-red:hover { background: rgba(239,68,68,.2); }
-.btn-green { background: rgba(16,185,129,.1); color: var(--green); border-color: rgba(16,185,129,.3); padding: 10px 15px; font-size: 0.85rem; border-radius: 10px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; }
-.btn-green:hover { background: rgba(16,185,129,.2); }
-.btn-orange { background: rgba(245,158,11,.1); color: var(--orange); border-color: rgba(245,158,11,.3); }
-.btn-orange.active { background: rgba(245,158,11,.3); box-shadow: 0 0 15px rgba(245,158,11,.3); }
-.btn-cyan { background: rgba(6,182,212,.1); color: var(--cyan); border-color: rgba(6,182,212,.3); }
 
-/* --- LOCATION DISPLAY --- */
+.btn-red {
+    background: rgba(248, 113, 113, 0.08);
+    color: var(--red);
+    border-color: rgba(248, 113, 113, 0.2);
+}
+
+.btn-red:hover {
+    background: rgba(248, 113, 113, 0.15);
+    box-shadow: 0 0 20px rgba(248, 113, 113, 0.2);
+}
+
+.btn-green {
+    background: rgba(52, 211, 153, 0.08);
+    color: var(--green);
+    border-color: rgba(52, 211, 153, 0.2);
+    padding: 12px 18px;
+    font-size: 0.85rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 0.3s;
+}
+
+.btn-green:hover {
+    background: rgba(52, 211, 153, 0.15);
+    box-shadow: 0 0 20px rgba(52, 211, 153, 0.2);
+}
+
+.btn-orange {
+    background: rgba(251, 191, 36, 0.08);
+    color: var(--orange);
+    border-color: rgba(251, 191, 36, 0.2);
+}
+
+.btn-orange.active {
+    background: rgba(251, 191, 36, 0.25);
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+}
+
+.btn-cyan {
+    background: rgba(34, 211, 238, 0.08);
+    color: var(--cyan);
+    border-color: rgba(34, 211, 238, 0.2);
+}
+
+.btn-cyan:hover {
+    background: rgba(34, 211, 238, 0.15);
+}
+
+/* ============ LOCATION DISPLAY ============ */
 .location-display {
-    background: rgba(6,182,212,0.05); border: 1px solid rgba(6,182,212,0.2);
-    border-radius: 12px; padding: 15px; margin-top: 20px; text-align: center;
-    font-size: 0.95rem; font-weight: 700; color: var(--cyan);
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    min-height: 55px; letter-spacing: 0.5px;
-    box-shadow: inset 0 0 20px rgba(6,182,212,0.05);
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.05), rgba(167, 139, 250, 0.05));
+    border: 1px solid rgba(34, 211, 238, 0.15);
+    border-radius: 14px;
+    padding: 18px;
+    margin-top: 22px;
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--cyan);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 60px;
+    letter-spacing: 0.5px;
+    font-family: 'JetBrains Mono', monospace;
+    box-shadow: inset 0 0 30px rgba(34, 211, 238, 0.05);
 }
 
-/* --- SYSTEM LOGS & CUSTOM SCROLLBAR --- */
+/* ============ SYSTEM LOGS ============ */
 .log-container {
-    height: 150px; overflow-y: auto; font-family: ui-monospace, monospace;
-    font-size: 0.8rem; color: #cbd5e1; background: rgba(0, 0, 0, 0.5);
-    border-radius: 12px; padding: 15px; border: 1px solid rgba(255,255,255,0.05);
-    box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+    height: 160px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: #cbd5e1;
+    background: rgba(3, 7, 18, 0.7);
+    border-radius: 14px;
+    padding: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6);
+    line-height: 1.6;
 }
-.log-container::-webkit-scrollbar { width: 6px; }
-.log-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 3px; }
-.log-container::-webkit-scrollbar-thumb { background: var(--cyan); border-radius: 3px; }
-.log-entry { margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.02); }
-.log-entry .time { color: var(--cyan); font-weight: 600; }
 
-/* --- TOAST NOTIFICATION --- */
-.toast {
-    position: fixed; bottom: 30px; right: 30px;
-    background: linear-gradient(135deg, #ef4444, #b91c1c); color: white;
-    padding: 18px 25px; border-radius: 14px; font-weight: 700;
-    display: flex; align-items: center; gap: 12px;
-    box-shadow: 0 15px 40px rgba(239, 68, 68, 0.6);
-    transform: translateY(100px); opacity: 0;
-    transition: all 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
-    z-index: 1000; border: 1px solid rgba(255,255,255,0.2);
+.log-container::-webkit-scrollbar { width: 8px; }
+.log-container::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+.log-container::-webkit-scrollbar-thumb { 
+    background: linear-gradient(180deg, var(--cyan), var(--purple));
+    border-radius: 4px;
 }
-.toast.show { transform: translateY(0); opacity: 1; }
+
+.log-entry {
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.log-entry .time {
+    color: var(--cyan);
+    font-weight: 700;
+    margin-right: 6px;
+}
+
+/* ============ TOAST ============ */
+.toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: linear-gradient(135deg, #f87171, #dc2626);
+    color: white;
+    padding: 20px 30px;
+    border-radius: 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 
+        0 20px 60px rgba(248, 113, 113, 0.6),
+        0 0 0 1px rgba(255, 255, 255, 0.1);
+    transform: translateY(120px);
+    opacity: 0;
+    transition: all 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    z-index: 1000;
+    letter-spacing: 0.5px;
+}
+
+.toast.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.toast i {
+    font-size: 1.4rem;
+    animation: toastShake 0.5s infinite;
+}
+
+@keyframes toastShake {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-10deg); }
+    75% { transform: rotate(10deg); }
+}
+
+/* Leaflet Dark Mode Override */
+.leaflet-tile-pane {
+    filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+
+.leaflet-control-zoom a {
+    background-color: rgba(15, 23, 42, 0.9) !important;
+    color: var(--cyan) !important;
+    border: 1px solid rgba(34, 211, 238, 0.2) !important;
+}
+
+.leaflet-control-zoom a:hover {
+    background-color: rgba(34, 211, 238, 0.2) !important;
+}
 </style>
 </head>
 <body>
 <div class="dashboard">
 <header class="header">
 <h1><i class="fa-solid fa-satellite-dish"></i> GPS Tracker Dashboard</h1>
-<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
 <div class="status-badge" id="statusBadge"><span class="status-dot"></span><span id="statusText">Loading...</span></div>
 </div>
 </header>
@@ -262,7 +687,7 @@ body {
 <div class="data-card"><div class="icon-box i-org"><i class="fa-solid fa-satellite"></i></div><div class="data-info"><h3>Satellites</h3><p id="sats">--</p></div></div>
 <div class="data-card"><div class="icon-box i-red"><i class="fa-solid fa-gauge-high"></i></div><div class="data-info"><h3>Speed</h3><p id="speed">0.00 km/h</p></div></div>
 <div class="data-card"><div class="icon-box i-blu"><i class="fa-solid fa-route"></i></div><div class="data-info"><h3>Distance</h3><p id="distance">0.00 km</p></div></div>
-<div class="data-card"><div class="icon-box i-vio"><i class="fa-solid fa-chart-simple"></i></div><div class="data-info"><h3>Avg Speed</h3><p id="avgSpeed">0.00 km/h</p></div></div>
+<div class="data-card"><div class="icon-box i-pnk"><i class="fa-solid fa-chart-simple"></i></div><div class="data-info"><h3>Avg Speed</h3><p id="avgSpeed">0.00 km/h</p></div></div>
 </div>
 
 <div class="main-grid">
@@ -311,10 +736,10 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     keepBuffer: 2
 }).addTo(map);
 L.control.zoom({position:'bottomright'}).addTo(map);
-const gpsIcon = L.divIcon({className:'custom-icon',html:'<div style="background:#06b6d4;width:22px;height:22px;border-radius:50%;border:3px solid white;box-shadow:0 0 20px #06b6d4, 0 0 40px #06b6d4;"></div>',iconSize:[22,22],iconAnchor:[11,11]});
+const gpsIcon = L.divIcon({className:'custom-icon',html:'<div style="background:#22d3ee;width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 0 25px #22d3ee, 0 0 50px #22d3ee;"></div>',iconSize:[24,24],iconAnchor:[12,12]});
 const marker = L.marker([14.5995,120.9842],{icon:gpsIcon}).addTo(map);
 const pathPoints = [];
-const polyline = L.polyline(pathPoints,{color:'#06b6d4',weight:4,opacity:.8,dashArray:'8, 12'}).addTo(map);
+const polyline = L.polyline(pathPoints,{color:'#22d3ee',weight:4,opacity:.9,dashArray:'8, 12'}).addTo(map);
 
 // ========== STATE ==========
 let currentLat=14.5995,currentLon=120.9842,prevLat=null,prevLon=null;
@@ -327,166 +752,18 @@ const logHistory=[],GEOFENCE_RADIUS=100,timeInterval=2;
 // ========== CHART ==========
 const ctx=document.getElementById('gpsChart').getContext('2d');
 const gradient=ctx.createLinearGradient(0,0,0,250);
-gradient.addColorStop(0,'rgba(6,182,212,.6)');gradient.addColorStop(1,'rgba(6,182,212,0)');
-const gpsChart=new Chart(ctx,{type:'line',data:{labels:[],datasets:[{label:'Altitude',data:[],borderColor:'#06b6d4',backgroundColor:gradient,borderWidth:3,fill:true,tension:.4,pointRadius:0,pointHoverRadius:6,pointHoverBackgroundColor:'#fff',pointHoverBorderColor:'#06b6d4'}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:0},plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,backgroundColor:'rgba(15,23,42,0.9)',titleColor:'#94a3b8',bodyColor:'#fff',borderColor:'rgba(6,182,212,0.3)',borderWidth:1}},scales:{x:{display:false},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#94a3b8',font:{family:'monospace',size:10}}}}}});
+gradient.addColorStop(0,'rgba(34, 211, 238, 0.6)');
+gradient.addColorStop(0.5,'rgba(34, 211, 238, 0.15)');
+gradient.addColorStop(1,'rgba(34, 211, 238, 0)');
 
-// ========== HELPERS ==========
-function addLog(msg){
-  const c=document.getElementById('logContainer'),e=document.createElement('div');
-  e.className='log-entry';
-  e.innerHTML=`<span class="time">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
-  c.appendChild(e);c.scrollTop=c.scrollHeight;
-  if(c.children.length>50)c.removeChild(c.firstChild);
-}
-function haversine(lat1,lon1,lat2,lon2){
-  const R=6371,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
-  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-
-// ========== VOICE ==========
-function speakLocation(){
-  if(isSpeaking)return;
-  const btn=document.getElementById('voiceBtn');btn.disabled=true;isSpeaking=true;
-  const alt=document.getElementById('alt').innerText;
-  const sats=document.getElementById('sats').innerText;
-  const spd=document.getElementById('speed').innerText;
-  const dist=document.getElementById('distance').innerText;
-  const txt=`Current coordinates. Latitude ${currentLat.toFixed(6)}. Longitude ${currentLon.toFixed(6)}. Altitude ${alt}. Speed ${spd}. Total distance ${dist}. Satellites ${sats}.`;
-  document.getElementById('locationText').innerText=`Lat: ${currentLat.toFixed(6)}, Lon: ${currentLon.toFixed(6)}`;
-  if('speechSynthesis' in window){
-    const u=new SpeechSynthesisUtterance(txt);u.rate=.9;
-    u.onend=()=>{isSpeaking=false;btn.disabled=false;addLog("Voice finished.");};
-    u.onerror=()=>{isSpeaking=false;btn.disabled=false;};
-    speechSynthesis.speak(u);
-    addLog("Voice: Speaking coordinates...");
-  }else{isSpeaking=false;btn.disabled=false;alert("Voice not supported.");}
-}
-
-// ========== GEOFENCE ==========
-function toggleGeofence(){
-  const btn=document.getElementById('geofenceBtn');
-  if(isGeofenceEnabled){
-    if(geofenceCircle)map.removeLayer(geofenceCircle);
-    geofenceCircle=null;isGeofenceEnabled=false;btn.classList.remove('active');addLog("Geofence off.");
-  }else{
-    geofenceCircle=L.circle([currentLat,currentLon],{color:'#f59e0b',fillColor:'#f59e0b',fillOpacity:.1,radius:GEOFENCE_RADIUS,weight:2}).addTo(map);
-    isGeofenceEnabled=true;btn.classList.add('active');addLog(`Geofence: ${GEOFENCE_RADIUS}m radius.`);
-  }
-}
-function checkGeofence(lat,lon){
-  if(!isGeofenceEnabled||!geofenceCircle)return false;
-  return haversine(lat,lon,geofenceCircle.getLatLng().lat,geofenceCircle.getLatLng().lng)*1000>GEOFENCE_RADIUS;
-}
-
-// ========== TRAIL & CENTER ==========
-function clearTrail(){
-  pathPoints.length=0;polyline.setLatLngs(pathPoints);
-  totalDistance=0;totalTime=0;
-  document.getElementById('distance').innerText='0.00 km';
-  document.getElementById('avgSpeed').innerText='0.00 km/h';
-  addLog("Trail cleared.");
-}
-function centerOnMe(){isFollowing=true;map.flyTo([currentLat,currentLon],16);addLog("Centered on GPS.");}
-
-// ========== EXPORT CSV ==========
-function exportData(){
-  if(!logHistory.length){alert("No data yet.");return;}
-  let csv="Timestamp,Latitude,Longitude,Altitude,Speed,Satellites\n";
-  logHistory.forEach(e=>{csv+=`${e.timestamp},${e.latitude},${e.longitude},${e.altitude},${e.speed},${e.satellites}\n`;});
-  const blob=new Blob([csv],{type:'text/csv'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=`gps_data_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  addLog(`Exported ${logHistory.length} records.`);
-}
-
-// ========== HARDWARE UI UPDATE ==========
-function updateHardwareUI(data){
-  const ledCard = document.getElementById('ledCard');
-  const buzzerCard = document.getElementById('buzzerCard');
-  const oledText = document.getElementById('oledText');
-
-  if(data.led){
-    ledCard.className = 'hw-card led-on';
-    if(!lastLedState){ addLog("LED: ON (GPS Active)"); lastLedState = true; }
-  } else {
-    ledCard.className = 'hw-card';
-    if(lastLedState){ addLog("LED: OFF (Weak Signal)"); lastLedState = false; }
-  }
-
-  if(data.buzzer){
-    buzzerCard.className = 'hw-card buzzer-on';
-    if(!lastBuzzerState){ addLog("BUZZER: ALERT (Weak Signal!)"); lastBuzzerState = true; }
-  } else {
-    buzzerCard.className = 'hw-card';
-    if(lastBuzzerState){ addLog("BUZZER: OFF"); lastBuzzerState = false; }
-  }
-
-  oledText.innerText = data.oled_message;
-  if(data.satellites >= 4){
-    oledText.classList.add('active');
-  } else {
-    oledText.classList.remove('active');
-  }
-}
-
-// ========== MAIN DATA LOOP ==========
-function updateData(){
-  fetch('/get_gps').then(r=>r.json()).then(data=>{
-    currentLat=data.latitude;currentLon=data.longitude;
-    document.getElementById('lat').innerText=data.latitude.toFixed(6);
-    document.getElementById('lon').innerText=data.longitude.toFixed(6);
-    document.getElementById('alt').innerText=data.altitude.toFixed(2)+' m';
-    document.getElementById('sats').innerText=data.satellites;
-
-    let speed=0;
-    if(prevLat!==null){
-      const d=haversine(prevLat,prevLon,data.latitude,data.longitude);
-      if(d>0.0001){
-        totalDistance+=d;totalTime+=timeInterval;
-        speed=d*(3600/timeInterval);
-        document.getElementById('speed').innerText=speed.toFixed(2)+' km/h';
-        document.getElementById('distance').innerText=totalDistance.toFixed(3)+' km';
-        document.getElementById('avgSpeed').innerText=(totalDistance/(totalTime/3600)).toFixed(2)+' km/h';
-        pathPoints.push([data.latitude,data.longitude]);
-        if(pathPoints.length>500)pathPoints.shift();
-        polyline.setLatLngs(pathPoints);
-      }
-    }
-    prevLat=data.latitude;prevLon=data.longitude;
-
-    logHistory.push({timestamp:new Date().toISOString(),latitude:data.latitude.toFixed(6),longitude:data.longitude.toFixed(6),altitude:data.altitude.toFixed(2),speed:speed.toFixed(2),satellites:data.satellites});
-    if(logHistory.length>1000)logHistory.shift();
-
-    if(checkGeofence(data.latitude,data.longitude)){
-      addLog("ALERT: Outside safe zone!");
-      const t=document.getElementById('alertToast');
-      document.getElementById('toastMsg').innerText='Warning: Outside Safe Zone!';
-      t.classList.add('show');setTimeout(()=>t.classList.remove('show'),5000);
-    }
-
-    const badge=document.getElementById('statusBadge');
-    document.getElementById('statusText').innerText=data.status;
-    badge.className=(data.satellites<4||data.status==="Geofence Alert")?"status-badge alert":"status-badge";
-
-    updateHardwareUI(data);
-
-    marker.setLatLng([data.latitude,data.longitude]);
-    if(isFollowing)map.panTo([data.latitude,data.longitude]);
-
-    timeCount++;
-    gpsChart.data.labels.push(timeCount);
-    gpsChart.data.datasets[0].data.push(data.altitude);
-    if(gpsChart.data.labels.length>30){gpsChart.data.labels.shift();gpsChart.data.datasets[0].data.shift();}
-    gpsChart.update();
-  }).catch(e=>console.error(e));
-}
-
-setInterval(updateData,2000);
-updateData();
-addLog("System ready.");
-</script>
-</body>
-</html>
+const gpsChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [{
+            label: 'Altitude',
+            data: [],
+            borderColor: '#22d3ee',
+            backgroundColor: gradient,
+            borderWidth: 3,
+            fill: true
