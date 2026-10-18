@@ -766,4 +766,208 @@ const gpsChart = new Chart(ctx, {
             borderColor: '#22d3ee',
             backgroundColor: gradient,
             borderWidth: 3,
-            fill: true
+            fill: true,
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: '#22d3ee',
+            pointHoverBorderWidth: 3
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 0 },
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                mode: 'index',
+                intersect: false,
+                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                titleColor: '#22d3ee',
+                bodyColor: '#f8fafc',
+                borderColor: 'rgba(34, 211, 238, 0.3)',
+                borderWidth: 1,
+                padding: 12,
+                cornerRadius: 8,
+                titleFont: { family: 'JetBrains Mono', size: 11 },
+                bodyFont: { family: 'JetBrains Mono', size: 13, weight: 'bold' }
+            }
+        },
+        scales: {
+            x: { display: false },
+            y: {
+                grid: { color: 'rgba(255, 255, 255, 0.04)' },
+                ticks: {
+                    color: '#64748b',
+                    font: { family: 'JetBrains Mono', size: 10 }
+                }
+            }
+        }
+    }
+});
+
+// ========== HELPERS ==========
+function addLog(msg){
+    const c=document.getElementById('logContainer'),e=document.createElement('div');
+    e.className='log-entry';
+    e.innerHTML=`<span class="time">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+    c.appendChild(e);c.scrollTop=c.scrollHeight;
+    if(c.children.length>50)c.removeChild(c.firstChild);
+}
+
+function haversine(lat1,lon1,lat2,lon2){
+    const R=6371,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
+    const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// ========== VOICE ==========
+function speakLocation(){
+    if(isSpeaking)return;
+    const btn=document.getElementById('voiceBtn');btn.disabled=true;isSpeaking=true;
+    const alt=document.getElementById('alt').innerText;
+    const sats=document.getElementById('sats').innerText;
+    const spd=document.getElementById('speed').innerText;
+    const dist=document.getElementById('distance').innerText;
+    const txt=`Current coordinates. Latitude ${currentLat.toFixed(6)}. Longitude ${currentLon.toFixed(6)}. Altitude ${alt}. Speed ${spd}. Total distance ${dist}. Satellites ${sats}.`;
+    document.getElementById('locationText').innerText=`Lat: ${currentLat.toFixed(6)}, Lon: ${currentLon.toFixed(6)}`;
+    if('speechSynthesis' in window){
+        const u=new SpeechSynthesisUtterance(txt);u.rate=.9;
+        u.onend=()=>{isSpeaking=false;btn.disabled=false;addLog("Voice finished.");};
+        u.onerror=()=>{isSpeaking=false;btn.disabled=false;};
+        speechSynthesis.speak(u);
+        addLog("Voice: Speaking coordinates...");
+    }else{isSpeaking=false;btn.disabled=false;alert("Voice not supported.");}
+}
+
+// ========== GEOFENCE ==========
+function toggleGeofence(){
+    const btn=document.getElementById('geofenceBtn');
+    if(isGeofenceEnabled){
+        if(geofenceCircle)map.removeLayer(geofenceCircle);
+        geofenceCircle=null;isGeofenceEnabled=false;btn.classList.remove('active');addLog("Geofence off.");
+    }else{
+        geofenceCircle=L.circle([currentLat,currentLon],{color:'#fbbf24',fillColor:'#fbbf24',fillOpacity:.08,radius:GEOFENCE_RADIUS,weight:2}).addTo(map);
+        isGeofenceEnabled=true;btn.classList.add('active');addLog(`Geofence: ${GEOFENCE_RADIUS}m radius.`);
+    }
+}
+
+function checkGeofence(lat,lon){
+    if(!isGeofenceEnabled||!geofenceCircle)return false;
+    return haversine(lat,lon,geofenceCircle.getLatLng().lat,geofenceCircle.getLatLng().lng)*1000>GEOFENCE_RADIUS;
+}
+
+// ========== TRAIL & CENTER ==========
+function clearTrail(){
+    pathPoints.length=0;polyline.setLatLngs(pathPoints);
+    totalDistance=0;totalTime=0;
+    document.getElementById('distance').innerText='0.00 km';
+    document.getElementById('avgSpeed').innerText='0.00 km/h';
+    addLog("Trail cleared.");
+}
+
+function centerOnMe(){isFollowing=true;map.flyTo([currentLat,currentLon],16);addLog("Centered on GPS.");}
+
+// ========== EXPORT CSV ==========
+function exportData(){
+    if(!logHistory.length){alert("No data yet.");return;}
+    let csv="Timestamp,Latitude,Longitude,Altitude,Speed,Satellites\n";
+    logHistory.forEach(e=>{csv+=`${e.timestamp},${e.latitude},${e.longitude},${e.altitude},${e.speed},${e.satellites}\n`;});
+    const blob=new Blob([csv],{type:'text/csv'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`gps_data_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    addLog(`Exported ${logHistory.length} records.`);
+}
+
+// ========== HARDWARE UI ==========
+function updateHardwareUI(data){
+    const ledCard = document.getElementById('ledCard');
+    const buzzerCard = document.getElementById('buzzerCard');
+    const oledText = document.getElementById('oledText');
+
+    if(data.led){
+        ledCard.className = 'hw-card led-on';
+        if(!lastLedState){ addLog("LED: ON (GPS Active)"); lastLedState = true; }
+    } else {
+        ledCard.className = 'hw-card';
+        if(lastLedState){ addLog("LED: OFF (Weak Signal)"); lastLedState = false; }
+    }
+
+    if(data.buzzer){
+        buzzerCard.className = 'hw-card buzzer-on';
+        if(!lastBuzzerState){ addLog("BUZZER: ALERT (Weak Signal!)"); lastBuzzerState = true; }
+    } else {
+        buzzerCard.className = 'hw-card';
+        if(lastBuzzerState){ addLog("BUZZER: OFF"); lastBuzzerState = false; }
+    }
+
+    oledText.innerText = data.oled_message;
+    if(data.satellites >= 4){
+        oledText.classList.add('active');
+    } else {
+        oledText.classList.remove('active');
+    }
+}
+
+// ========== MAIN LOOP ==========
+function updateData(){
+    fetch('/get_gps').then(r=>r.json()).then(data=>{
+        currentLat=data.latitude;currentLon=data.longitude;
+        document.getElementById('lat').innerText=data.latitude.toFixed(6);
+        document.getElementById('lon').innerText=data.longitude.toFixed(6);
+        document.getElementById('alt').innerText=data.altitude.toFixed(2)+' m';
+        document.getElementById('sats').innerText=data.satellites;
+
+        let speed=0;
+        if(prevLat!==null){
+            const d=haversine(prevLat,prevLon,data.latitude,data.longitude);
+            if(d>0.0001){
+                totalDistance+=d;totalTime+=timeInterval;
+                speed=d*(3600/timeInterval);
+                document.getElementById('speed').innerText=speed.toFixed(2)+' km/h';
+                document.getElementById('distance').innerText=totalDistance.toFixed(3)+' km';
+                document.getElementById('avgSpeed').innerText=(totalDistance/(totalTime/3600)).toFixed(2)+' km/h';
+                pathPoints.push([data.latitude,data.longitude]);
+                if(pathPoints.length>500)pathPoints.shift();
+                polyline.setLatLngs(pathPoints);
+            }
+        }
+        prevLat=data.latitude;prevLon=data.longitude;
+
+        logHistory.push({timestamp:new Date().toISOString(),latitude:data.latitude.toFixed(6),longitude:data.longitude.toFixed(6),altitude:data.altitude.toFixed(2),speed:speed.toFixed(2),satellites:data.satellites});
+        if(logHistory.length>1000)logHistory.shift();
+
+        if(checkGeofence(data.latitude,data.longitude)){
+            addLog("ALERT: Outside safe zone!");
+            const t=document.getElementById('alertToast');
+            document.getElementById('toastMsg').innerText='Warning: Outside Safe Zone!';
+            t.classList.add('show');setTimeout(()=>t.classList.remove('show'),5000);
+        }
+
+        const badge=document.getElementById('statusBadge');
+        document.getElementById('statusText').innerText=data.status;
+        badge.className=(data.satellites<4||data.status==="Geofence Alert")?"status-badge alert":"status-badge";
+
+        updateHardwareUI(data);
+
+        marker.setLatLng([data.latitude,data.longitude]);
+        if(isFollowing)map.panTo([data.latitude,data.longitude]);
+
+        timeCount++;
+        gpsChart.data.labels.push(timeCount);
+        gpsChart.data.datasets[0].data.push(data.altitude);
+        if(gpsChart.data.labels.length>30){gpsChart.data.labels.shift();gpsChart.data.datasets[0].data.shift();}
+        gpsChart.update();
+    }).catch(e=>console.error(e));
+}
+
+setInterval(updateData,2000);
+updateData();
+addLog("System ready.");
+</script>
+</body>
+</html>
