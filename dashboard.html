@@ -5,38 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mission Control | Orbital Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
-    <header class="dash-header">
-        <h1><i class="fa-solid fa-satellite"></i> Mission Control</h1>
-        <a href="/" class="btn-home"><i class="fa-solid fa-power-off"></i> Disconnect</a>
-    </header>
+<body style="overflow-y: auto;">
+    
+    <nav class="navbar">
+        <a href="/" class="nav-brand"><i class="fa-solid fa-satellite-dish"></i> ORBITAL TRACKER</a>
+        <div class="nav-links">
+            <a href="/">Home</a>
+            <a href="/how-it-works">How It Works</a>
+            <a href="/hardware">Hardware</a>
+            <a href="/logs">Logs</a>
+            <a href="/dashboard" class="nav-btn active">Mission Control</a>
+        </div>
+    </nav>
 
-    <div class="dash-container">
+    <div class="dash-container" style="margin-top: 100px;">
         
-        <!-- LEFT COLUMN -->
         <div>
             <div class="panel">
-                <div class="panel-title"><i class="fa-solid fa-map-location-dot"></i> Live Orbital Map</div>
+                <div class="panel-title">
+                    <span><i class="fa-solid fa-map-location-dot"></i> Live Orbital Map</span>
+                    <div class="timer-box" id="sessionTimer">T+ 00:00:00</div>
+                </div>
                 <div id="map"></div>
             </div>
             
             <div class="panel">
-                <div class="panel-title"><i class="fa-solid fa-chart-line"></i> Altitude Telemetry History</div>
+                <div class="panel-title"><i class="fa-solid fa-chart-line"></i> Altitude Telemetry</div>
                 <div class="chart-container">
                     <canvas id="altitudeChart"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- RIGHT COLUMN -->
         <div>
             <div class="panel">
                 <div class="panel-title"><i class="fa-solid fa-chart-simple"></i> Live Data</div>
+                <div class="speed-box">
+                    <div class="stat-label">Current Velocity</div>
+                    <div class="speed-val"><span id="val-speed">0.0</span> <span class="speed-unit" style="font-size:1rem; color:#64748b;">km/h</span></div>
+                </div>
                 <div class="stats-grid">
                     <div class="stat-box">
                         <div class="stat-label">Latitude</div>
@@ -60,12 +73,8 @@
             <div class="panel">
                 <div class="panel-title"><i class="fa-solid fa-microchip"></i> Diagnostics</div>
                 <div class="hw-grid">
-                    <div class="hw-item" id="hw-led">
-                        <i class="fa-solid fa-lightbulb"></i><span>LED</span>
-                    </div>
-                    <div class="hw-item" id="hw-buzzer">
-                        <i class="fa-solid fa-bell"></i><span>Buzzer</span>
-                    </div>
+                    <div class="hw-item" id="hw-led"><i class="fa-solid fa-lightbulb"></i><span>LED</span></div>
+                    <div class="hw-item" id="hw-buzzer"><i class="fa-solid fa-bell"></i><span>Buzzer</span></div>
                     <div class="hw-item">
                         <i class="fa-solid fa-tv"></i><span>OLED</span>
                         <div class="oled-text" id="hw-oled">--</div>
@@ -73,18 +82,34 @@
                 </div>
             </div>
 
+            <!-- System Health (Walang RAM) -->
+            <div class="panel">
+                <div class="panel-title"><i class="fa-solid fa-server"></i> System Health</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center;">
+                    <div>
+                        <div class="stat-label">CPU Load</div>
+                        <div class="stat-val" id="sys-cpu" style="font-size: 1.2rem; color: var(--cyan);">--%</div>
+                    </div>
+                    <div>
+                        <div class="stat-label">CPU Temp</div>
+                        <div class="stat-val" id="sys-temp" style="font-size: 1.2rem; color: var(--orange);">--°C</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="panel">
                 <div class="panel-title"><i class="fa-solid fa-sliders"></i> Command Center</div>
-                <div class="controls">
-                    <button class="btn-ctrl" onclick="centerMap()"><i class="fa-solid fa-crosshairs"></i> Center</button>
-                    <button class="btn-ctrl" onclick="speakLocation()"><i class="fa-solid fa-volume-high"></i> Voice</button>
+                <div class="btn-grid">
+                    <button class="btn-action" onclick="centerMap()"><i class="fa-solid fa-crosshairs"></i> Center</button>
+                    <button class="btn-action" onclick="speakLocation()"><i class="fa-solid fa-volume-high"></i> Voice</button>
+                    <button class="btn-action" onclick="exportToCSV()"><i class="fa-solid fa-file-csv"></i> Export Log</button>
+                    <button class="btn-action" onclick="toggleFullScreen()"><i class="fa-solid fa-expand"></i> Fullscreen</button>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // --- MAP SETUP ---
         const map = L.map('map', {zoomControl: false}).setView([14.5995, 120.9842], 15);
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         
@@ -95,11 +120,19 @@
         });
         let marker = L.marker([14.5995, 120.9842], {icon: gpsIcon}).addTo(map);
         let pathPoints = [];
-        let polyline = L.polyline(pathPoints, {color: '#00f2fe', weight: 3, opacity: 0.6, dashArray: '5, 10'}).addTo(map);
+        let polyline = L.polyline(pathPoints, {color: '#00f2fe', weight: 3, opacity: 0.7, dashArray: '5, 10'}).addTo(map);
 
-        let currentLat = 14.5995, currentLon = 120.9842;
+        let currentLat = 14.5995, currentLon = 120.9842, prevLat = null, prevLon = null;
 
-        // --- CHART.JS SETUP ---
+        let seconds = 0;
+        setInterval(() => {
+            seconds++;
+            let hrs = String(Math.floor(seconds / 3600)).padStart(2, '0');
+            let mins = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+            let secs = String(seconds % 60).padStart(2, '0');
+            document.getElementById('sessionTimer').innerText = `T+ ${hrs}:${mins}:${secs}`;
+        }, 1000);
+
         const ctx = document.getElementById('altitudeChart').getContext('2d');
         const chartGradient = ctx.createLinearGradient(0, 0, 0, 200);
         chartGradient.addColorStop(0, 'rgba(0, 242, 254, 0.5)');
@@ -107,83 +140,89 @@
 
         const altitudeChart = new Chart(ctx, {
             type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Altitude (m)',
-                    data: [],
-                    borderColor: '#00f2fe',
-                    backgroundColor: chartGradient,
-                    borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false, animation: { duration: 0 },
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { display: false },
-                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { family: 'Space Mono', size: 10 } } }
-                }
-            }
+            data: { labels: [], datasets: [{ label: 'Altitude', data: [], borderColor: '#00f2fe', backgroundColor: chartGradient, borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0 }] },
+            options: { responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } } } }
         });
 
         let timeCount = 0;
 
-        // --- FETCH DATA ---
-        function updateData() {
-            fetch('/api/gps')
-                .then(res => res.json())
-                .then(data => {
-                    currentLat = data.latitude;
-                    currentLon = data.longitude;
-
-                    // Update Text
-                    document.getElementById('val-lat').innerText = data.latitude.toFixed(6);
-                    document.getElementById('val-lon').innerText = data.longitude.toFixed(6);
-                    document.getElementById('val-alt').innerText = data.altitude.toFixed(1) + ' m';
-                    document.getElementById('val-sats').innerText = data.satellites;
-
-                    // Update Map
-                    let newPos = [data.latitude, data.longitude];
-                    marker.setLatLng(newPos);
-                    map.panTo(newPos);
-
-                    pathPoints.push(newPos);
-                    if(pathPoints.length > 100) pathPoints.shift();
-                    polyline.setLatLngs(pathPoints);
-
-                    // Update Chart
-                    timeCount++;
-                    altitudeChart.data.labels.push(timeCount);
-                    altitudeChart.data.datasets[0].data.push(data.altitude);
-                    if (altitudeChart.data.labels.length > 30) {
-                        altitudeChart.data.labels.shift();
-                        altitudeChart.data.datasets[0].data.shift();
-                    }
-                    altitudeChart.update();
-
-                    // Update Hardware
-                    const led = document.getElementById('hw-led');
-                    const buzzer = document.getElementById('hw-buzzer');
-                    const oled = document.getElementById('hw-oled');
-
-                    led.className = data.led ? 'hw-item active-led' : 'hw-item';
-                    buzzer.className = data.buzzer ? 'hw-item active-buzzer' : 'hw-item';
-                    oled.innerText = data.oled_message;
-                }).catch(e => console.error(e));
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
         }
 
-        // Controls
+        function updateData() {
+            fetch('/api/gps').then(res => res.json()).then(data => {
+                currentLat = data.latitude; currentLon = data.longitude;
+
+                document.getElementById('val-lat').innerText = data.latitude.toFixed(6);
+                document.getElementById('val-lon').innerText = data.longitude.toFixed(6);
+                document.getElementById('val-alt').innerText = data.altitude.toFixed(1) + ' m';
+                document.getElementById('val-sats').innerText = data.satellites;
+
+                if (prevLat !== null) {
+                    let dist = calculateDistance(prevLat, prevLon, currentLat, currentLon);
+                    document.getElementById('val-speed').innerText = (dist * 1800).toFixed(1); 
+                }
+                prevLat = currentLat; prevLon = currentLon;
+
+                let newPos = [data.latitude, data.longitude];
+                marker.setLatLng(newPos);
+                map.panTo(newPos);
+
+                pathPoints.push(newPos);
+                if(pathPoints.length > 100) pathPoints.shift();
+                polyline.setLatLngs(pathPoints);
+
+                timeCount++;
+                altitudeChart.data.labels.push(timeCount);
+                altitudeChart.data.datasets[0].data.push(data.altitude);
+                if (altitudeChart.data.labels.length > 30) {
+                    altitudeChart.data.labels.shift(); altitudeChart.data.datasets[0].data.shift();
+                }
+                altitudeChart.update();
+
+                const led = document.getElementById('hw-led');
+                const buzzer = document.getElementById('hw-buzzer');
+                led.className = data.led ? 'hw-item active-led' : 'hw-item';
+                buzzer.className = data.buzzer ? 'hw-item active-buzzer' : 'hw-item';
+                document.getElementById('hw-oled').innerText = data.oled_message;
+            }).catch(e => console.error(e));
+        }
+
+        function fetchSystemStats() {
+            fetch('/api/system').then(res => res.json()).then(data => {
+                document.getElementById('sys-cpu').innerText = data.cpu + '%';
+                document.getElementById('sys-temp').innerText = data.temp + '°C';
+            }).catch(e => console.log(e));
+        }
+
         function centerMap() { map.flyTo([currentLat, currentLon], 17); }
         function speakLocation() {
             if ('speechSynthesis' in window) {
-                let text = `Target coordinates. Latitude ${currentLat.toFixed(5)}, Longitude ${currentLon.toFixed(5)}.`;
-                speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+                speechSynthesis.speak(new SpeechSynthesisUtterance(`Target coordinates: Latitude ${currentLat.toFixed(5)}, Longitude ${currentLon.toFixed(5)}.`));
             }
+        }
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+            else if (document.exitFullscreen) document.exitFullscreen();
+        }
+        function exportToCSV() {
+            fetch('/api/gps').then(res => res.json()).then(data => {
+                if(!data.history.length) { alert("No data yet!"); return; }
+                let csv = "data:text/csv;charset=utf-8,Time,Latitude,Longitude,Altitude\n";
+                data.history.forEach(row => { csv += `${row.time},${row.lat},${row.lon},${row.alt}\n`; });
+                let link = document.createElement("a");
+                link.href = encodeURI(csv);
+                link.download = `mission_log_${Date.now()}.csv`;
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            });
         }
 
         setInterval(updateData, 2000);
-        updateData();
+        setInterval(fetchSystemStats, 3000);
+        updateData(); fetchSystemStats();
     </script>
 </body>
 </html>
