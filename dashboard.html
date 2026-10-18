@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <header class="dash-header">
@@ -17,18 +18,25 @@
 
     <div class="dash-container">
         
-        <!-- LEFT: MAP -->
-        <div class="panel">
-            <div class="panel-title"><i class="fa-solid fa-map-location-dot"></i> Live Orbital Map</div>
-            <div id="map"></div>
+        <!-- LEFT COLUMN -->
+        <div>
+            <div class="panel">
+                <div class="panel-title"><i class="fa-solid fa-map-location-dot"></i> Live Orbital Map</div>
+                <div id="map"></div>
+            </div>
+            
+            <div class="panel">
+                <div class="panel-title"><i class="fa-solid fa-chart-line"></i> Altitude Telemetry History</div>
+                <div class="chart-container">
+                    <canvas id="altitudeChart"></canvas>
+                </div>
+            </div>
         </div>
 
-        <!-- RIGHT: DATA & CONTROLS -->
-        <div style="display: flex; flex-direction: column; gap: 25px;">
-            
-            <!-- Telemetry Stats -->
+        <!-- RIGHT COLUMN -->
+        <div>
             <div class="panel">
-                <div class="panel-title"><i class="fa-solid fa-chart-simple"></i> Telemetry Data</div>
+                <div class="panel-title"><i class="fa-solid fa-chart-simple"></i> Live Data</div>
                 <div class="stats-grid">
                     <div class="stat-box">
                         <div class="stat-label">Latitude</div>
@@ -49,35 +57,29 @@
                 </div>
             </div>
 
-            <!-- Hardware Diagnostics -->
             <div class="panel">
                 <div class="panel-title"><i class="fa-solid fa-microchip"></i> Diagnostics</div>
                 <div class="hw-grid">
                     <div class="hw-item" id="hw-led">
-                        <i class="fa-solid fa-lightbulb"></i>
-                        <span>LED</span>
+                        <i class="fa-solid fa-lightbulb"></i><span>LED</span>
                     </div>
                     <div class="hw-item" id="hw-buzzer">
-                        <i class="fa-solid fa-bell"></i>
-                        <span>Buzzer</span>
+                        <i class="fa-solid fa-bell"></i><span>Buzzer</span>
                     </div>
                     <div class="hw-item">
-                        <i class="fa-solid fa-tv"></i>
-                        <span>OLED</span>
+                        <i class="fa-solid fa-tv"></i><span>OLED</span>
                         <div class="oled-text" id="hw-oled">--</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Controls -->
             <div class="panel">
                 <div class="panel-title"><i class="fa-solid fa-sliders"></i> Command Center</div>
                 <div class="controls">
-                    <button class="btn-ctrl primary" onclick="centerMap()"><i class="fa-solid fa-crosshairs"></i> Center Target</button>
-                    <button class="btn-ctrl" onclick="speakLocation()"><i class="fa-solid fa-volume-high"></i> Voice Telemetry</button>
+                    <button class="btn-ctrl" onclick="centerMap()"><i class="fa-solid fa-crosshairs"></i> Center</button>
+                    <button class="btn-ctrl" onclick="speakLocation()"><i class="fa-solid fa-volume-high"></i> Voice</button>
                 </div>
             </div>
-
         </div>
     </div>
 
@@ -85,71 +87,98 @@
         // --- MAP SETUP ---
         const map = L.map('map', {zoomControl: false}).setView([14.5995, 120.9842], 15);
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        L.control.zoom({position: 'bottomright'}).addTo(map);
-
-        // Custom Glowing Marker
+        
         const gpsIcon = L.divIcon({
             className: 'custom-icon',
             html: '<div style="background:#00f2fe;width:16px;height:16px;border-radius:50%;box-shadow:0 0 20px #00f2fe, 0 0 40px #00f2fe;border:2px solid white;"></div>',
             iconSize: [16, 16], iconAnchor: [8, 8]
         });
-        
         let marker = L.marker([14.5995, 120.9842], {icon: gpsIcon}).addTo(map);
         let pathPoints = [];
         let polyline = L.polyline(pathPoints, {color: '#00f2fe', weight: 3, opacity: 0.6, dashArray: '5, 10'}).addTo(map);
 
         let currentLat = 14.5995, currentLon = 120.9842;
 
+        // --- CHART.JS SETUP ---
+        const ctx = document.getElementById('altitudeChart').getContext('2d');
+        const chartGradient = ctx.createLinearGradient(0, 0, 0, 200);
+        chartGradient.addColorStop(0, 'rgba(0, 242, 254, 0.5)');
+        chartGradient.addColorStop(1, 'rgba(0, 242, 254, 0)');
+
+        const altitudeChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Altitude (m)',
+                    data: [],
+                    borderColor: '#00f2fe',
+                    backgroundColor: chartGradient,
+                    borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: { duration: 0 },
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { family: 'Space Mono', size: 10 } } }
+                }
+            }
+        });
+
+        let timeCount = 0;
+
         // --- FETCH DATA ---
         function updateData() {
-            // TANDAAN: /api/gps ang tamang endpoint, hindi /api/data
             fetch('/api/gps')
                 .then(res => res.json())
                 .then(data => {
                     currentLat = data.latitude;
                     currentLon = data.longitude;
 
-                    // Update Text (with formatting)
+                    // Update Text
                     document.getElementById('val-lat').innerText = data.latitude.toFixed(6);
                     document.getElementById('val-lon').innerText = data.longitude.toFixed(6);
                     document.getElementById('val-alt').innerText = data.altitude.toFixed(1) + ' m';
                     document.getElementById('val-sats').innerText = data.satellites;
 
-                    // Update Map Position
+                    // Update Map
                     let newPos = [data.latitude, data.longitude];
                     marker.setLatLng(newPos);
                     map.panTo(newPos);
 
-                    // Update Trail
                     pathPoints.push(newPos);
-                    if(pathPoints.length > 100) pathPoints.shift(); // Keep trail length manageable
+                    if(pathPoints.length > 100) pathPoints.shift();
                     polyline.setLatLngs(pathPoints);
 
-                    // Update Hardware UI
+                    // Update Chart
+                    timeCount++;
+                    altitudeChart.data.labels.push(timeCount);
+                    altitudeChart.data.datasets[0].data.push(data.altitude);
+                    if (altitudeChart.data.labels.length > 30) {
+                        altitudeChart.data.labels.shift();
+                        altitudeChart.data.datasets[0].data.shift();
+                    }
+                    altitudeChart.update();
+
+                    // Update Hardware
                     const led = document.getElementById('hw-led');
                     const buzzer = document.getElementById('hw-buzzer');
                     const oled = document.getElementById('hw-oled');
 
-                    if(data.led) led.classList.add('active-led');
-                    else led.classList.remove('active-led');
-
-                    if(data.buzzer) buzzer.classList.add('active-buzzer');
-                    else buzzer.classList.remove('active-buzzer');
-
+                    led.className = data.led ? 'hw-item active-led' : 'hw-item';
+                    buzzer.className = data.buzzer ? 'hw-item active-buzzer' : 'hw-item';
                     oled.innerText = data.oled_message;
                 }).catch(e => console.error(e));
         }
 
-        // --- CONTROLS ---
-        function centerMap() {
-            map.flyTo([currentLat, currentLon], 17);
-        }
-
+        // Controls
+        function centerMap() { map.flyTo([currentLat, currentLon], 17); }
         function speakLocation() {
             if ('speechSynthesis' in window) {
                 let text = `Target coordinates. Latitude ${currentLat.toFixed(5)}, Longitude ${currentLon.toFixed(5)}.`;
-                let utterance = new SpeechSynthesisUtterance(text);
-                speechSynthesis.speak(utterance);
+                speechSynthesis.speak(new SpeechSynthesisUtterance(text));
             }
         }
 
