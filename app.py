@@ -1,316 +1,275 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GPS Tracker Dashboard</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-:root{--bg:#0b1120;--card:rgba(30,41,59,.6);--border:rgba(255,255,255,.08);--cyan:#06b6d4;--green:#10b981;--red:#ef4444;--purple:#8b5cf6;--orange:#f59e0b;--text:#f8fafc;--muted:#94a3b8}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);background-image:radial-gradient(circle at 15% 50%,rgba(6,182,212,.08),transparent 30%),radial-gradient(circle at 85% 30%,rgba(16,185,129,.08),transparent 30%);min-height:100vh;padding:20px}
-.dashboard{max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
-.header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px;padding:15px 25px;background:var(--card);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:16px}
-.header h1{font-size:1.5rem;display:flex;align-items:center;gap:10px}
-.header h1 i{color:var(--cyan)}
-.status-badge{display:flex;align-items:center;gap:8px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);padding:8px 16px;border-radius:50px;font-size:.85rem;font-weight:600;color:var(--green);text-transform:uppercase}
-.status-badge.alert{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.3);color:var(--red)}
-.status-dot{width:8px;height:8px;background:currentColor;border-radius:50%;animation:pulse 1.5s infinite}
-@keyframes pulse{50%{opacity:1}0%,100%{opacity:.7}}
-.data-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px}
-.data-card{background:var(--card);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:16px;padding:15px;display:flex;align-items:center;gap:15px}
-.icon-box{width:45px;height:45px;border-radius:10px;display:flex;justify-content:center;align-items:center;font-size:1.3rem;flex-shrink:0}
-.i-cyan{background:rgba(6,182,212,.15);color:var(--cyan)}
-.i-pur{background:rgba(139,92,246,.15);color:var(--purple)}
-.i-grn{background:rgba(16,185,129,.15);color:var(--green)}
-.i-org{background:rgba(245,158,11,.15);color:var(--orange)}
-.i-red{background:rgba(239,68,68,.15);color:var(--red)}
-.i-blu{background:rgba(59,130,246,.15);color:#3b82f6}
-.i-vio{background:rgba(168,85,247,.15);color:#a855f7}
-.data-info h3{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
-.data-info p{font-family:ui-monospace,monospace;font-size:1.1rem;font-weight:700;margin-top:2px}
-.main-grid{display:grid;grid-template-columns:2fr 1fr;gap:20px}
-@media(max-width:900px){.main-grid{grid-template-columns:1fr}}
-.panel{background:var(--card);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:16px;padding:20px;display:flex;flex-direction:column}
-.panel-title{font-size:1rem;font-weight:600;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between;color:var(--muted)}
-#map{height:400px;border-radius:12px;z-index:1;background:#1e293b}
-.chart-container{height:200px;width:100%}
-.hardware-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:15px}
-.hw-card{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:15px;text-align:center;transition:all .3s ease}
-.hw-card i{font-size:2rem;margin-bottom:10px;color:var(--muted);transition:all .3s ease}
-.hw-card p{font-size:.8rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
-.hw-card.led-on{border-color:var(--green);box-shadow:0 0 20px rgba(16,185,129,.5);background:rgba(16,185,129,.08)}
-.hw-card.led-on i{color:var(--green);text-shadow:0 0 15px var(--green);animation:ledGlow 1.5s ease-in-out infinite}
-@keyframes ledGlow{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.7;transform:scale(.95)}}
-.hw-card.led-off{border-color:rgba(255,255,255,.1);opacity:.5}
-.hw-card.led-off i{color:#555}
-.hw-card.buzzer-on{border-color:var(--red);box-shadow:0 0 20px rgba(239,68,68,.5);background:rgba(239,68,68,.08)}
-.hw-card.buzzer-on i{color:var(--red);animation:shake .4s infinite}
-@keyframes shake{25%{transform:rotate(10deg)}75%{transform:rotate(-10deg)}}
-.oled{background:#000;color:#0f0;font-family:ui-monospace,monospace;padding:10px;border-radius:4px;font-size:.85rem;margin-top:5px;border:2px solid #333;min-height:40px;display:flex;align-items:center;justify-content:center;text-align:center}
-.oled.active{border-color:var(--green);box-shadow:0 0 15px rgba(16,185,129,.3)}
-.voice-btn{background:linear-gradient(135deg,var(--cyan),#0891b2);color:white;border:none;padding:12px 20px;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;margin-top:15px;transition:transform .2s;width:100%;justify-content:center}
-.voice-btn:hover{transform:scale(1.02)}
-.voice-btn:disabled{opacity:.6;cursor:not-allowed}
-.location-display{background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.3);border-radius:8px;padding:12px;margin-top:15px;text-align:center;font-size:.95rem;font-weight:600;color:var(--cyan);display:flex;align-items:center;justify-content:center;gap:10px;min-height:50px}
-.log-container{height:150px;overflow-y:auto;font-family:ui-monospace,monospace;font-size:.8rem;color:var(--muted);background:rgba(0,0,0,.3);border-radius:8px;padding:10px;border:1px solid rgba(255,255,255,.05)}
-.log-entry{margin-bottom:5px}
-.log-entry .time{color:var(--cyan)}
-.mini-btn{padding:5px 10px;border-radius:6px;font-size:.75rem;cursor:pointer;font-weight:600;transition:all .2s;border:1px solid}
-.btn-red{background:rgba(239,68,68,.15);color:var(--red);border-color:rgba(239,68,68,.3)}
-.btn-red:hover{background:rgba(239,68,68,.3)}
-.btn-green{background:rgba(16,185,129,.15);color:var(--green);border-color:rgba(16,185,129,.3);padding:8px 15px;font-size:.85rem;display:flex;align-items:center;gap:8px;cursor:pointer;border-radius:8px;font-weight:600}
-.btn-green:hover{background:rgba(16,185,129,.3)}
-.btn-orange{background:rgba(245,158,11,.15);color:var(--orange);border-color:rgba(245,158,11,.3);padding:8px 15px;font-size:.85rem;display:flex;align-items:center;gap:8px}
-.btn-orange.active{background:rgba(245,158,11,.4);box-shadow:0 0 10px rgba(245,158,11,.3)}
-.btn-cyan{background:rgba(6,182,212,.15);color:var(--cyan);border-color:rgba(6,182,212,.3)}
-.toast{position:fixed;bottom:30px;right:30px;background:var(--red);color:white;padding:15px 25px;border-radius:12px;font-weight:600;display:flex;align-items:center;gap:10px;box-shadow:0 10px 40px rgba(239,68,68,.5);transform:translateY(100px);opacity:0;transition:all .4s cubic-bezier(.68,-.55,.27,1.55);z-index:1000}
-.toast.show{transform:translateY(0);opacity:1}
-</style>
-</head>
-<body>
-<div class="dashboard">
-<header class="header">
-<h1><i class="fa-solid fa-satellite-dish"></i> GPS Tracker Dashboard</h1>
-<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-<div class="status-badge" id="statusBadge"><span class="status-dot"></span><span id="statusText">Loading...</span></div>
-</div>
-</header>
+from flask import Flask, render_template, jsonify
+import threading
+import time
+import random
 
-<div class="data-grid">
-<div class="data-card"><div class="icon-box i-cyan"><i class="fa-solid fa-location-crosshairs"></i></div><div class="data-info"><h3>Latitude</h3><p id="lat">--</p></div></div>
-<div class="data-card"><div class="icon-box i-pur"><i class="fa-solid fa-map-location-dot"></i></div><div class="data-info"><h3>Longitude</h3><p id="lon">--</p></div></div>
-<div class="data-card"><div class="icon-box i-grn"><i class="fa-solid fa-mountain"></i></div><div class="data-info"><h3>Altitude</h3><p id="alt">--</p></div></div>
-<div class="data-card"><div class="icon-box i-org"><i class="fa-solid fa-satellite"></i></div><div class="data-info"><h3>Satellites</h3><p id="sats">--</p></div></div>
-<div class="data-card"><div class="icon-box i-red"><i class="fa-solid fa-gauge-high"></i></div><div class="data-info"><h3>Speed</h3><p id="speed">0.00 km/h</p></div></div>
-<div class="data-card"><div class="icon-box i-blu"><i class="fa-solid fa-route"></i></div><div class="data-info"><h3>Distance</h3><p id="distance">0.00 km</p></div></div>
-<div class="data-card"><div class="icon-box i-vio"><i class="fa-solid fa-chart-simple"></i></div><div class="data-info"><h3>Avg Speed</h3><p id="avgSpeed">0.00 km/h</p></div></div>
-</div>
+# ============================================
+# GPS LIBRARIES
+# ============================================
+try:
+    import serial
+    import pynmea2
+    GPS_AVAILABLE = True
+except ImportError:
+    GPS_AVAILABLE = False
+    print("[WARN] GPS libraries not installed.")
 
-<div class="main-grid">
-<div class="panel">
-<div class="panel-title">
-<span><i class="fa-solid fa-map"></i> Live Location Map</span>
-<div style="display:flex;gap:10px">
-<button class="mini-btn btn-cyan" onclick="centerOnMe()"><i class="fa-solid fa-crosshairs"></i> Center</button>
-<button class="mini-btn btn-orange" id="geofenceBtn" onclick="toggleGeofence()"><i class="fa-solid fa-shield-halved"></i> Safe Zone</button>
-<button class="mini-btn btn-red" onclick="clearTrail()"><i class="fa-solid fa-eraser"></i> Clear Trail</button>
-</div>
-</div>
-<div id="map"></div>
-<div class="location-display"><i class="fa-solid fa-location-dot"></i><span id="locationText">Press Voice Assist to hear your coordinates</span></div>
-<button class="voice-btn" id="voiceBtn" onclick="speakLocation()"><i class="fa-solid fa-volume-high"></i> Voice Assist: Coordinates</button>
-<button class="btn-green" onclick="exportData()" style="margin-top:10px;justify-content:center"><i class="fa-solid fa-file-csv"></i> Export Data to CSV</button>
-</div>
+# ============================================
+# HARDWARE LIBRARIES (LED, Buzzer, OLED)
+# ============================================
+try:
+    import RPi.GPIO as GPIO
+    import board
+    import busio
+    import adafruit_ssd1306
+    from PIL import Image, ImageDraw, ImageFont
+    HARDWARE_AVAILABLE = True
+except ImportError as e:
+    HARDWARE_AVAILABLE = False
+    print(f"[WARN] Hardware libraries not installed: {e}")
 
-<div class="panel">
-<div class="panel-title"><i class="fa-solid fa-microchip"></i> Hardware Status</div>
-<div class="hardware-grid">
-<div class="hw-card" id="ledCard"><i class="fa-solid fa-lightbulb"></i><p>LED</p></div>
-<div class="hw-card" id="buzzerCard"><i class="fa-solid fa-bell"></i><p>BUZZER</p></div>
-<div class="hw-card"><i class="fa-solid fa-tv"></i><p>OLED</p><div class="oled" id="oledText">--</div></div>
-</div>
-<div class="panel-title" style="margin-top:20px"><i class="fa-solid fa-chart-line"></i> Altitude History</div>
-<div class="chart-container"><canvas id="gpsChart"></canvas></div>
-</div>
-</div>
+app = Flask(__name__)
 
-<div class="panel">
-<div class="panel-title"><i class="fa-solid fa-terminal"></i> System Logs</div>
-<div class="log-container" id="logContainer"><div class="log-entry"><span class="time">[System]</span> Dashboard initialized.</div></div>
-</div>
-</div>
+# ============================================
+# HARDWARE SETUP
+# ============================================
+LED_PIN = 18
+BUZZER_PIN = 23
+oled = None
 
-<div class="toast" id="alertToast"><i class="fa-solid fa-triangle-exclamation"></i><span id="toastMsg">Warning!</span></div>
+if HARDWARE_AVAILABLE:
+    try:
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
+        GPIO.setup(LED_PIN, GPIO.OUT)
+        GPIO.setup(BUZZER_PIN, GPIO.OUT)
+        print("[OK] LED and Buzzer initialized (GPIO 18, GPIO 23)")
+    except Exception as e:
+        print(f"[WARN] GPIO init failed: {e}")
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-// ========== MAP ==========
-const map = L.map('map',{zoomControl:false, preferCanvas: true}).setView([14.5995,120.9842],15);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    updateWhenIdle: true,
-    keepBuffer: 2
-}).addTo(map);
-L.control.zoom({position:'bottomright'}).addTo(map);
-const gpsIcon = L.divIcon({className:'custom-icon',html:'<div style="background:#06b6d4;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 0 15px #06b6d4"></div>',iconSize:[20,20],iconAnchor:[10,10]});
-const marker = L.marker([14.5995,120.9842],{icon:gpsIcon}).addTo(map);
-const pathPoints = [];
-const polyline = L.polyline(pathPoints,{color:'#06b6d4',weight:3,opacity:.7,dashArray:'5,10'}).addTo(map);
+    try:
+        i2c = busio.I2C(board.SCL, board.SDA)
+        oled = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c, addr=0x3C)
+        oled.fill(0)
+        oled.show()
+        print("[OK] OLED connected (0x3C)")
+    except Exception as e:
+        print(f"[WARN] OLED not connected: {e}")
+        oled = None
 
-// ========== STATE ==========
-let currentLat=14.5995,currentLon=120.9842,prevLat=null,prevLon=null;
-let totalDistance=0,totalTime=0,timeCount=0;
-let isFollowing=true,isSpeaking=false,isGeofenceEnabled=false;
-let geofenceCircle=null;
-let lastLedState=false,lastBuzzerState=false;
-const logHistory=[],GEOFENCE_RADIUS=100,timeInterval=2;
+# ============================================
+# OLED SLIDING/SCROLLING LOGIC
+# ============================================
+current_page = 0
+last_page_change = time.time()
+PAGE_DELAY = 3  # Seconds bago magpalit ng page
 
-// ========== CHART ==========
-const ctx=document.getElementById('gpsChart').getContext('2d');
-const gradient=ctx.createLinearGradient(0,0,0,200);
-gradient.addColorStop(0,'rgba(6,182,212,.5)');gradient.addColorStop(1,'rgba(6,182,212,0)');
-const gpsChart=new Chart(ctx,{type:'line',data:{labels:[],datasets:[{label:'Altitude',data:[],borderColor:'#06b6d4',backgroundColor:gradient,borderWidth:2,fill:true,tension:.4,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:0},plugins:{legend:{display:false}},scales:{x:{display:false},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#94a3b8',font:{family:'monospace',size:10}}}}}});
+def oled_display_sliding(lat, lon, alt, sats, speed, status):
+    global current_page, last_page_change
+    
+    if oled is None:
+        return
+        
+    # Palitan ang page tuwing PAGE_DELAY seconds
+    if time.time() - last_page_change > PAGE_DELAY:
+        current_page = (current_page + 1) % 3  # 3 pages: 0, 1, 2
+        last_page_change = time.time()
 
-// ========== HELPERS ==========
-function addLog(msg){
-  const c=document.getElementById('logContainer'),e=document.createElement('div');
-  e.className='log-entry';
-  e.innerHTML=`<span class="time">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
-  c.appendChild(e);c.scrollTop=c.scrollHeight;
-  if(c.children.length>50)c.removeChild(c.firstChild);
-}
-function haversine(lat1,lon1,lat2,lon2){
-  const R=6371,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
-  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    try:
+        oled.fill(0)
+        img = Image.new("1", (oled.width, oled.height))
+        draw = ImageDraw.Draw(img)
+        font = ImageFont.load_default()
+
+        if current_page == 0:
+            # PAGE 1: Status at Satellites
+            draw.text((0, 0), f"STATUS: {status}", font=font, fill=255)
+            draw.text((0, 16), f"SATS: {sats}/12", font=font, fill=255)
+            draw.text((0, 32), f"ALT: {alt:.1f}m", font=font, fill=255)
+            draw.text((0, 48), f"SPD: {speed:.1f}km/h", font=font, fill=255)
+            
+        elif current_page == 1:
+            # PAGE 2: Coordinates
+            draw.text((0, 0), "COORDINATES", font=font, fill=255)
+            draw.text((0, 16), f"LAT: {lat:.5f}", font=font, fill=255)
+            draw.text((0, 32), f"LON: {lon:.5f}", font=font, fill=255)
+            draw.text((0, 48), f"SATS: {sats}/12", font=font, fill=255)
+            
+        elif current_page == 2:
+            # PAGE 3: System Info / Alert
+            if sats < 4:
+                draw.text((0, 0), "!! WARNING !!", font=font, fill=255)
+                draw.text((0, 16), "WEAK SIGNAL", font=font, fill=255)
+                draw.text((0, 32), "CHECK ANTENNA", font=font, fill=255)
+                draw.text((0, 48), f"SATS: {sats}/12", font=font, fill=255)
+            else:
+                draw.text((0, 0), "SYSTEM OK", font=font, fill=255)
+                draw.text((0, 16), "GPS ACTIVE", font=font, fill=255)
+                draw.text((0, 32), "MONITORING...", font=font, fill=255)
+                draw.text((0, 48), "RPi 4 + NEO-6M", font=font, fill=255)
+
+        oled.image(img)
+        oled.show()
+    except Exception as e:
+        print(f"OLED error: {e}")
+
+def update_hardware(lat, lon, alt, sats):
+    """Update LED, Buzzer, OLED based on satellite count."""
+    if not HARDWARE_AVAILABLE:
+        return
+    try:
+        # Compute speed mula sa distance formula (approximate)
+        # Sa totoong scenario, kinukuha ito sa $GPRMC sentence.
+        # Dito, gagamit tayo ng 0.0 kung walang data para safe.
+        speed = 0.0 # Placeholder, pwede natin i-update later kung may speed data tayo
+        
+        if sats >= 4:
+            GPIO.output(LED_PIN, True)
+            GPIO.output(BUZZER_PIN, False)
+            gps_data["buzzer"] = False
+            gps_data["led"] = True
+            gps_data["oled_message"] = "GPS ACTIVE"
+            status_text = "ACTIVE"
+        else:
+            GPIO.output(LED_PIN, False)
+            GPIO.output(BUZZER_PIN, True)
+            gps_data["buzzer"] = True
+            gps_data["led"] = False
+            gps_data["oled_message"] = "WEAK SIGNAL!"
+            status_text = "WEAK"
+            
+        # I-update ang OLED (sliding)
+        oled_display_sliding(lat, lon, alt, sats, speed, status_text)
+        
+    except Exception as e:
+        print(f"Hardware update error: {e}")
+
+# ============================================
+# GLOBAL STATE
+# ============================================
+gps_data = {
+    "latitude": 14.5995,
+    "longitude": 120.9842,
+    "altitude": 0,
+    "satellites": 0,
+    "status": "Initializing...",
+    "buzzer": False,
+    "led": False,
+    "oled_message": "Booting...",
+    "geofence_alert": False
 }
 
-// ========== VOICE ==========
-function speakLocation(){
-  if(isSpeaking)return;
-  const btn=document.getElementById('voiceBtn');btn.disabled=true;isSpeaking=true;
-  const alt=document.getElementById('alt').innerText;
-  const sats=document.getElementById('sats').innerText;
-  const spd=document.getElementById('speed').innerText;
-  const dist=document.getElementById('distance').innerText;
-  const txt=`Current coordinates. Latitude ${currentLat.toFixed(6)}. Longitude ${currentLon.toFixed(6)}. Altitude ${alt}. Speed ${spd}. Total distance ${dist}. Satellites ${sats}.`;
-  document.getElementById('locationText').innerText=`Lat: ${currentLat.toFixed(6)}, Lon: ${currentLon.toFixed(6)}`;
-  if('speechSynthesis' in window){
-    const u=new SpeechSynthesisUtterance(txt);u.rate=.9;
-    u.onend=()=>{isSpeaking=false;btn.disabled=false;addLog("Voice finished.");};
-    u.onerror=()=>{isSpeaking=false;btn.disabled=false;};
-    speechSynthesis.speak(u);
-    addLog("Voice: Speaking coordinates...");
-  }else{isSpeaking=false;btn.disabled=false;alert("Voice not supported.");}
-}
+# ============================================
+# REAL GPS READER
+# ============================================
+def real_gps_reader():
+    PORT = '/dev/serial0'
+    BAUD = 9600
+    ser = None
+    retries = 0
 
-// ========== GEOFENCE ==========
-function toggleGeofence(){
-  const btn=document.getElementById('geofenceBtn');
-  if(isGeofenceEnabled){
-    if(geofenceCircle)map.removeLayer(geofenceCircle);
-    geofenceCircle=null;isGeofenceEnabled=false;btn.classList.remove('active');addLog("Geofence off.");
-  }else{
-    geofenceCircle=L.circle([currentLat,currentLon],{color:'#f59e0b',fillColor:'#f59e0b',fillOpacity:.15,radius:GEOFENCE_RADIUS,weight:2}).addTo(map);
-    isGeofenceEnabled=true;btn.classList.add('active');addLog(`Geofence: ${GEOFENCE_RADIUS}m radius.`);
-  }
-}
-function checkGeofence(lat,lon){
-  if(!isGeofenceEnabled||!geofenceCircle)return false;
-  return haversine(lat,lon,geofenceCircle.getLatLng().lat,geofenceCircle.getLatLng().lng)*1000>GEOFENCE_RADIUS;
-}
+    print(f"[INFO] Connecting to GPS on {PORT}...")
 
-// ========== TRAIL & CENTER ==========
-function clearTrail(){
-  pathPoints.length=0;polyline.setLatLngs(pathPoints);
-  totalDistance=0;totalTime=0;
-  document.getElementById('distance').innerText='0.00 km';
-  document.getElementById('avgSpeed').innerText='0.00 km/h';
-  addLog("Trail cleared.");
-}
-function centerOnMe(){isFollowing=true;map.flyTo([currentLat,currentLon],16);addLog("Centered on GPS.");}
+    while ser is None:
+        try:
+            ser = serial.Serial(PORT, baudrate=BAUD, timeout=1)
+            print(f"[OK] GPS connected on {PORT}")
+            gps_data["status"] = "GPS Connected"
+        except serial.SerialException as e:
+            retries += 1
+            print(f"[FAIL] GPS failed ({retries}): {e}")
+            gps_data["status"] = "GPS Disconnected"
+            time.sleep(3)
+            if retries > 5:
+                print("[WARN] Falling back to MOCK mode.")
+                mock_gps_reader()
+                return
 
-// ========== EXPORT CSV ==========
-function exportData(){
-  if(!logHistory.length){alert("No data yet.");return;}
-  let csv="Timestamp,Latitude,Longitude,Altitude,Speed,Satellites\n";
-  logHistory.forEach(e=>{csv+=`${e.timestamp},${e.latitude},${e.longitude},${e.altitude},${e.speed},${e.satellites}\n`;});
-  const blob=new Blob([csv],{type:'text/csv'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=`gps_data_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  addLog(`Exported ${logHistory.length} records.`);
-}
+    while True:
+        try:
+            if ser.in_waiting > 0:
+                line = ser.readline().decode('utf-8', errors='ignore').strip()
+                if line.startswith('$GPGGA') or line.startswith('$GPRMC'):
+                    try:
+                        msg = pynmea2.parse(line)
+                        
+                        if hasattr(msg, 'latitude') and msg.latitude != 0.0:
+                            gps_data["latitude"] = msg.latitude
+                            gps_data["longitude"] = msg.longitude
+                            gps_data["status"] = "GPS Active"
+                        
+                        if hasattr(msg, 'altitude') and msg.altitude:
+                            gps_data["altitude"] = float(msg.altitude)
+                        
+                        if hasattr(msg, 'num_sats') and msg.num_sats:
+                            gps_data["satellites"] = int(msg.num_sats)
+                        
+                        update_hardware(
+                            gps_data["latitude"],
+                            gps_data["longitude"],
+                            gps_data["altitude"],
+                            gps_data["satellites"]
+                        )
+                    except (pynmea2.ParseError, ValueError):
+                        pass
+            time.sleep(0.1)
+        except serial.SerialException as e:
+            print(f"[FAIL] Read error: {e}")
+            gps_data["status"] = "GPS Lost"
+            time.sleep(2)
 
-// ========== HARDWARE UI UPDATE ==========
-function updateHardwareUI(data){
-  const ledCard = document.getElementById('ledCard');
-  const buzzerCard = document.getElementById('buzzerCard');
-  const oledText = document.getElementById('oledText');
+# ============================================
+# MOCK READER (Fallback kapag walang GPS)
+# ============================================
+def mock_gps_reader():
+    print("[MOCK] Mock GPS activated.")
+    gps_data["status"] = "Mock Mode"
 
-  if(data.led){
-    ledCard.className = 'hw-card led-on';
-    if(!lastLedState){ addLog("LED: ON (GPS Active)"); lastLedState = true; }
-  } else {
-    ledCard.className = 'hw-card led-off';
-    if(lastLedState){ addLog("LED: OFF (Weak Signal)"); lastLedState = false; }
-  }
+    while True:
+        gps_data["latitude"] += random.uniform(-0.0002, 0.0002)
+        gps_data["longitude"] += random.uniform(-0.0002, 0.0002)
+        gps_data["altitude"] = random.uniform(10, 50)
+        gps_data["satellites"] = random.randint(1, 12)
+        
+        update_hardware(
+            gps_data["latitude"],
+            gps_data["longitude"],
+            gps_data["altitude"],
+            gps_data["satellites"]
+        )
+        time.sleep(2)
 
-  if(data.buzzer){
-    buzzerCard.className = 'hw-card buzzer-on';
-    if(!lastBuzzerState){ addLog("BUZZER: ALERT (Weak Signal!)"); lastBuzzerState = true; }
-  } else {
-    buzzerCard.className = 'hw-card';
-    if(lastBuzzerState){ addLog("BUZZER: OFF"); lastBuzzerState = false; }
-  }
+# ============================================
+# START GPS THREAD
+# ============================================
+if GPS_AVAILABLE:
+    gps_thread = threading.Thread(target=real_gps_reader, daemon=True)
+else:
+    print("[WARN] GPS libraries not available. Using mock mode.")
+    gps_thread = threading.Thread(target=mock_gps_reader, daemon=True)
+gps_thread.start()
 
-  oledText.innerText = data.oled_message;
-  if(data.satellites >= 4){
-    oledText.classList.add('active');
-  } else {
-    oledText.classList.remove('active');
-  }
-}
+# ============================================
+# FLASK ROUTES
+# ============================================
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-// ========== MAIN DATA LOOP ==========
-function updateData(){
-  fetch('/get_gps').then(r=>r.json()).then(data=>{
-    currentLat=data.latitude;currentLon=data.longitude;
-    document.getElementById('lat').innerText=data.latitude.toFixed(6);
-    document.getElementById('lon').innerText=data.longitude.toFixed(6);
-    document.getElementById('alt').innerText=data.altitude.toFixed(2)+' m';
-    document.getElementById('sats').innerText=data.satellites;
+@app.route('/get_gps')
+def get_gps():
+    return jsonify(gps_data)
 
-    let speed=0;
-    if(prevLat!==null){
-      const d=haversine(prevLat,prevLon,data.latitude,data.longitude);
-      if(d>0.0001){
-        totalDistance+=d;totalTime+=timeInterval;
-        speed=d*(3600/timeInterval);
-        document.getElementById('speed').innerText=speed.toFixed(2)+' km/h';
-        document.getElementById('distance').innerText=totalDistance.toFixed(3)+' km';
-        document.getElementById('avgSpeed').innerText=(totalDistance/(totalTime/3600)).toFixed(2)+' km/h';
-        pathPoints.push([data.latitude,data.longitude]);
-        if(pathPoints.length>500)pathPoints.shift();
-        polyline.setLatLngs(pathPoints);
-      }
-    }
-    prevLat=data.latitude;prevLon=data.longitude;
-
-    logHistory.push({timestamp:new Date().toISOString(),latitude:data.latitude.toFixed(6),longitude:data.longitude.toFixed(6),altitude:data.altitude.toFixed(2),speed:speed.toFixed(2),satellites:data.satellites});
-    if(logHistory.length>1000)logHistory.shift();
-
-    if(checkGeofence(data.latitude,data.longitude)){
-      addLog("ALERT: Outside safe zone!");
-      const t=document.getElementById('alertToast');
-      document.getElementById('toastMsg').innerText='Warning: Outside Safe Zone!';
-      t.classList.add('show');setTimeout(()=>t.classList.remove('show'),5000);
-    }
-
-    const badge=document.getElementById('statusBadge');
-    document.getElementById('statusText').innerText=data.status;
-    badge.className=(data.satellites<4||data.status==="Geofence Alert")?"status-badge alert":"status-badge";
-
-    updateHardwareUI(data);
-
-    marker.setLatLng([data.latitude,data.longitude]);
-    if(isFollowing)map.panTo([data.latitude,data.longitude]);
-
-    timeCount++;
-    gpsChart.data.labels.push(timeCount);
-    gpsChart.data.datasets[0].data.push(data.altitude);
-    if(gpsChart.data.labels.length>30){gpsChart.data.labels.shift();gpsChart.data.datasets[0].data.shift();}
-    gpsChart.update();
-  }).catch(e=>console.error(e));
-}
-
-setInterval(updateData,2000);
-updateData();
-addLog("System ready.");
-</script>
-</body>
-</html>
+# ============================================
+# MAIN
+# ============================================
+if __name__ == '__main__':
+    try:
+        app.run(host='0.0.0.0', port=5000, debug=False)
+    finally:
+        if HARDWARE_AVAILABLE:
+            GPIO.cleanup()
+            if oled:
+                oled.fill(0)
+                oled.show()
+        print("Cleanup done.")
