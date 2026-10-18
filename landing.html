@@ -3,39 +3,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orbital Tracker | Launch</title>
+    <title>Orbital Tracker | System Overview</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <!-- Background Stars -->
     <div id="stars-container"></div>
 
-    <div class="hero">
-        <div class="radar-container">
-            <div class="radar-ring"></div>
-            <div class="radar-ring"></div>
-            <i class="fa-solid fa-satellite-dish radar-icon"></i>
+    <!-- HERO SECTION -->
+    <header class="hero">
+        <div class="hero-content">
+            <div class="radar-container">
+                <div class="radar-ring"></div>
+                <div class="radar-ring"></div>
+                <i class="fa-solid fa-satellite-dish radar-icon"></i>
+            </div>
+            <h1>Orbital Tracker</h1>
+            <p>NEO-6M Telemetry Interface</p>
+            <a href="/dashboard" class="btn-launch">Initialize System</a>
         </div>
-        <h1>Orbital Tracker</h1>
-        <p>NEO-6M Telemetry Interface</p>
-        <a href="/dashboard" class="btn-launch">Initialize System</a>
-    </div>
+    </header>
+
+    <!-- FEATURES SECTION -->
+    <section class="section">
+        <div class="container">
+            <h2>System Capabilities</h2>
+            <p class="section-lead">Next-generation tracking technology built for precision and accuracy.</p>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3><i class="fa-solid fa-location-crosshairs"></i> Real-Time Tracking</h3>
+                    <p>Live coordinate mapping using high-precision NMEA data parsing from the NEO-6M satellite module.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><i class="fa-solid fa-chart-line"></i> Telemetry Analytics</h3>
+                    <p>Continuous monitoring of altitude, speed, and satellite lock status with an integrated real-time dashboard.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><i class="fa-solid fa-shield-halved"></i> Geofencing Alert</h3>
+                    <p>Define safe zones. The system triggers visual and physical alerts if the tracker moves outside the designated perimeter.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- HOW IT WORKS SECTION -->
+    <section class="section section-tint">
+        <div class="container">
+            <h2>System Architecture</h2>
+            <p class="section-lead">From the stratosphere to your screen in milliseconds.</p>
+            
+            <div class="steps">
+                <div class="step-item">
+                    <div class="step-num">01</div>
+                    <div class="step-text">
+                        <h4>Satellite Acquisition</h4>
+                        <p>The NEO-6M GPS module locks onto orbiting satellites to acquire precise latitude, longitude, and altitude data.</p>
+                    </div>
+                </div>
+                <div class="step-item">
+                    <div class="step-num">02</div>
+                    <div class="step-text">
+                        <h4>Serial Data Processing</h4>
+                        <p>The Raspberry Pi reads the raw NMEA sentences via UART (`/dev/serial0`) and parses them using Python.</p>
+                    </div>
+                </div>
+                <div class="step-item">
+                    <div class="step-num">03</div>
+                    <div class="step-text">
+                        <h4>Web Visualization</h4>
+                        <p>Flask serves the processed data to a Leaflet.js map and Chart.js dashboard for real-time monitoring.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- HARDWARE SECTION -->
+    <section class="section">
+        <div class="container">
+            <h2>Hardware Wiring Guide</h2>
+            <p class="section-lead">Connect the NEO-6M Module to the Raspberry Pi GPIO.</p>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>NEO-6M Pin</th>
+                            <th>Raspberry Pi Pin</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="pin">VCC</span></td>
+                            <td>Pin 2 (5V)</td>
+                            <td>Power Supply</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pin">GND</span></td>
+                            <td>Pin 6 (GND)</td>
+                            <td>Common Ground</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pin">TX</span></td>
+                            <td>Pin 10 (RX / GPIO 15)</td>
+                            <td>Data Transmit (to Pi)</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pin">RX</span></td>
+                            <td>Pin 8 (TX / GPIO 14)</td>
+                            <td>Data Receive (from Pi)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <p>Orbital Tracker System &copy; 2026 | Powered by Raspberry Pi & Flask</p>
+    </footer>
 
     <script>
-        // Generate stars dynamically
+        // Generate Stars
         const starsContainer = document.getElementById('stars-container');
-        for (let i = 0; i < 100; i++) {
+        for (let i = 0; i < 80; i++) {
             let star = document.createElement('div');
             star.className = 'star';
-            // Random position
             star.style.left = Math.random() * 100 + 'vw';
             star.style.top = Math.random() * 100 + 'vh';
-            // Random size
-            let size = Math.random() * 3 + 1 + 'px';
-            star.style.width = size;
-            star.style.height = size;
-            // Random animation speed
+            let size = Math.random() * 2 + 1 + 'px';
+            star.style.width = size; star.style.height = size;
             star.style.animationDuration = Math.random() * 3 + 2 + 's';
             star.style.animationDelay = Math.random() * 5 + 's';
             starsContainer.appendChild(star);
