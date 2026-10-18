@@ -38,28 +38,19 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 #map{height:400px;border-radius:12px;z-index:1;background:#1e293b}
 .chart-container{height:200px;width:100%}
 .hardware-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:15px}
-
-/* Hardware Cards - Base Styles */
 .hw-card{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:15px;text-align:center;transition:all .3s ease}
 .hw-card i{font-size:2rem;margin-bottom:10px;color:var(--muted);transition:all .3s ease}
 .hw-card p{font-size:.8rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
-
-/* LED states */
 .hw-card.led-on{border-color:var(--green);box-shadow:0 0 20px rgba(16,185,129,.5);background:rgba(16,185,129,.08)}
 .hw-card.led-on i{color:var(--green);text-shadow:0 0 15px var(--green);animation:ledGlow 1.5s ease-in-out infinite}
 @keyframes ledGlow{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.7;transform:scale(.95)}}
 .hw-card.led-off{border-color:rgba(255,255,255,.1);opacity:.5}
 .hw-card.led-off i{color:#555}
-
-/* Buzzer states */
 .hw-card.buzzer-on{border-color:var(--red);box-shadow:0 0 20px rgba(239,68,68,.5);background:rgba(239,68,68,.08)}
 .hw-card.buzzer-on i{color:var(--red);animation:shake .4s infinite}
 @keyframes shake{25%{transform:rotate(10deg)}75%{transform:rotate(-10deg)}}
-
-/* OLED */
 .oled{background:#000;color:#0f0;font-family:ui-monospace,monospace;padding:10px;border-radius:4px;font-size:.85rem;margin-top:5px;border:2px solid #333;min-height:40px;display:flex;align-items:center;justify-content:center;text-align:center}
 .oled.active{border-color:var(--green);box-shadow:0 0 15px rgba(16,185,129,.3)}
-
 .voice-btn{background:linear-gradient(135deg,var(--cyan),#0891b2);color:white;border:none;padding:12px 20px;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;margin-top:15px;transition:transform .2s;width:100%;justify-content:center}
 .voice-btn:hover{transform:scale(1.02)}
 .voice-btn:disabled{opacity:.6;cursor:not-allowed}
@@ -137,8 +128,12 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ========== MAP ==========
-const map = L.map('map',{zoomControl:false}).setView([14.5995,120.9842],15);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+const map = L.map('map',{zoomControl:false, preferCanvas: true}).setView([14.5995,120.9842],15);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    updateWhenIdle: true,
+    keepBuffer: 2
+}).addTo(map);
 L.control.zoom({position:'bottomright'}).addTo(map);
 const gpsIcon = L.divIcon({className:'custom-icon',html:'<div style="background:#06b6d4;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 0 15px #06b6d4"></div>',iconSize:[20,20],iconAnchor:[10,10]});
 const marker = L.marker([14.5995,120.9842],{icon:gpsIcon}).addTo(map);
@@ -237,37 +232,22 @@ function updateHardwareUI(data){
   const buzzerCard = document.getElementById('buzzerCard');
   const oledText = document.getElementById('oledText');
 
-  // LED Logic: NAKA-ON (green) kapag may GPS fix (>= 4 satellites)
   if(data.led){
     ledCard.className = 'hw-card led-on';
-    if(!lastLedState){
-      addLog("LED: ON (GPS Active)");
-      lastLedState = true;
-    }
+    if(!lastLedState){ addLog("LED: ON (GPS Active)"); lastLedState = true; }
   } else {
     ledCard.className = 'hw-card led-off';
-    if(lastLedState){
-      addLog("LED: OFF (Weak Signal)");
-      lastLedState = false;
-    }
+    if(lastLedState){ addLog("LED: OFF (Weak Signal)"); lastLedState = false; }
   }
 
-  // Buzzer Logic: NAKA-ON (red alert) kapag weak signal (< 4 satellites)
   if(data.buzzer){
     buzzerCard.className = 'hw-card buzzer-on';
-    if(!lastBuzzerState){
-      addLog("BUZZER: ALERT (Weak Signal!)");
-      lastBuzzerState = true;
-    }
+    if(!lastBuzzerState){ addLog("BUZZER: ALERT (Weak Signal!)"); lastBuzzerState = true; }
   } else {
     buzzerCard.className = 'hw-card';
-    if(lastBuzzerState){
-      addLog("BUZZER: OFF");
-      lastBuzzerState = false;
-    }
+    if(lastBuzzerState){ addLog("BUZZER: OFF"); lastBuzzerState = false; }
   }
 
-  // OLED
   oledText.innerText = data.oled_message;
   if(data.satellites >= 4){
     oledText.classList.add('active');
@@ -311,12 +291,10 @@ function updateData(){
       t.classList.add('show');setTimeout(()=>t.classList.remove('show'),5000);
     }
 
-    // Status Badge
     const badge=document.getElementById('statusBadge');
     document.getElementById('statusText').innerText=data.status;
     badge.className=(data.satellites<4||data.status==="Geofence Alert")?"status-badge alert":"status-badge";
 
-    // Hardware UI (LED, Buzzer, OLED)
     updateHardwareUI(data);
 
     marker.setLatLng([data.latitude,data.longitude]);
