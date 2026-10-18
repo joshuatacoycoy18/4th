@@ -1,1 +1,235 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hardware | Orbital Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Dedicated CSS for the Hardware Table */
+        .hw-table-container {
+            background: var(--bg-panel);
+            border: 1px solid rgba(0, 242, 254, 0.2);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-top: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .hw-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .hw-table th, .hw-table td {
+            padding: 18px 25px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 1.05rem;
+        }
+
+        .hw-table th {
+            background: rgba(0, 0, 0, 0.6);
+            font-family: var(--font-title);
+            color: var(--cyan);
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            border-bottom: 2px solid rgba(0, 242, 254, 0.3);
+        }
+
+        .hw-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .hw-table tr:hover td {
+            background: rgba(0, 242, 254, 0.05);
+        }
+
+        .component-name {
+            font-family: var(--font-title);
+            font-weight: 700;
+            color: #fff;
+            vertical-align: middle;
+            background: rgba(0, 0, 0, 0.2);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 1.1rem;
+        }
+
+        .pin-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .pin-5v { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .pin-3v { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .pin-data { background: rgba(0, 242, 254, 0.1); color: var(--cyan); border: 1px solid rgba(0, 242, 254, 0.3); }
+        .pin-gnd { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); }
+        .pin-led { background: rgba(245, 158, 11, 0.15); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.3); }
+        
+        /* Styling for the Pinout Image */
+        .pinout-container {
+            text-align: center;
+            margin: 40px 0;
+            padding: 20px;
+            background: var(--bg-panel);
+            border: 1px solid rgba(0, 242, 254, 0.2);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .pinout-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.1);
+        }
+        .pinout-caption {
+            margin-top: 15px;
+            font-family: var(--font-title);
+            color: var(--cyan);
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <div id="stars-container"></div>
+    
+    <nav class="navbar">
+        <a href="/" class="nav-brand"><i class="fa-solid fa-satellite-dish"></i> ORBITAL TRACKER</a>
+        <div class="nav-links">
+            <a href="/">Home</a>
+            <a href="/how-it-works">How It Works</a>
+            <a href="/hardware" class="active">Hardware</a>
+            <a href="/logs">Logs</a>
+            <a href="/dashboard" class="nav-btn">Launch App</a>
+        </div>
+    </nav>
+
+    <main class="page-container">
+        <h1 class="page-title">Hardware Integration</h1>
+        <p class="page-subtitle">Complete wiring guide for the Raspberry Pi, GPS Module, and peripherals.</p>
+
+        <!-- SAFETY PRECAUTIONS -->
+        <div class="step-card" style="border-left-color: var(--red);">
+            <h3 style="color: var(--red);"><i class="fa-solid fa-triangle-exclamation"></i> SAFETY PRECAUTIONS</h3>
+            <p style="line-height: 1.8;">
+                • The NEO-6M GPS Module requires <strong>5V</strong> power. Do not connect it to 3.3V.<br>
+                • The OLED Display requires <strong>3.3V</strong> power. Do not connect it to 5V.<br>
+                • Always use a <strong>220Ω Resistor</strong> with the LED.<br>
+                • Double-check TX and RX connections (Cross-wiring) before powering on.
+            </p>
+        </div>
+
+        <!-- PINOUT IMAGE SECTION -->
+        <div class="pinout-container">
+            <img src="{{ url_for('static', filename='images/pinout.png') }}" alt="Raspberry Pi GPIO Pinout Diagram" class="pinout-image">
+            <div class="pinout-caption"><i class="fa-solid fa-microchip"></i> Raspberry Pi 4 GPIO Pinout Reference</div>
+        </div>
+
+        <!-- WIRING TABLE -->
+        <div class="hw-table-container">
+            <table class="hw-table">
+                <thead>
+                    <tr>
+                        <th>Component</th>
+                        <th>Component Pin</th>
+                        <th>RPi Pin (GPIO)</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- NEO-6M GPS -->
+                    <tr>
+                        <td class="component-name" rowspan="4">NEO-6M GPS</td>
+                        <td><span class="pin-badge pin-5v">VCC</span></td>
+                        <td>Pin 2 (5V)</td>
+                        <td style="color: var(--muted);">Power Supply</td>
+                    </tr>
+                    <tr>
+                        <td><span class="pin-badge pin-gnd">GND</span></td>
+                        <td>Pin 6 (GND)</td>
+                        <td style="color: var(--muted);">Common Ground</td>
+                    </tr>
+                    <tr>
+                        <td><span class="pin-badge pin-data">TX</span></td>
+                        <td>Pin 10 (GPIO 15)</td>
+                        <td style="color: var(--muted);">Transmit Data (GPS → Pi)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="pin-badge pin-data">RX</span></td>
+                        <td>Pin 8 (GPIO 14)</td>
+                        <td style="color: var(--muted);">Receive Data (Pi → GPS)</td>
+                    </tr>
+
+                    <!-- OLED -->
+                    <tr>
+                        <td class="component-name" rowspan="4">OLED Display</td>
+                        <td><span class="pin-badge pin-3v">VCC</span></td>
+                        <td>Pin 1 (3.3V)</td>
+                        <td style="color: var(--muted);">Power Supply</td>
+                    </tr>
+                    <tr>
+                        <td><span class="pin-badge pin-gnd">GND</span></td>
+                        <td>Pin 9 (GND)</td>
+                        <td style="color: var(--muted);">Common Ground</td>
+                    </tr>
+                    <tr>
+                        <td><span class="pin-badge pin-data">SDA</span></td>
+                        <td>Pin 3 (GPIO 2)</td>
+                        <td style="color: var(--muted);">I2C Data Line</td>
+                    </tr>
+                    <tr>
+                        <td><span class="pin-badge pin-data">SCL</span></td>
+                        <td>Pin 5 (GPIO 3)</td>
+                        <td style="color: var(--muted);">I2C Clock Line</td>
+                    </tr>
+
+                    <!-- LED -->
+                    <tr>
+                        <td class="component-name" rowspan="2">LED (+ Resistor)</td>
+                        <td><span class="pin-badge pin-led">Anode (+)</span></td>
+                        <td>Pin 12 (GPIO 18)</td>
+                        <td style="color: var(--muted);">Digital Output (via Resistor)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="pin-badge pin-gnd">Cathode (-)</span></td>
+                        <td>Pin 14 (GND)</td>
+                        <td style="color: var(--muted);">Common Ground</td>
+                    </tr>
+
+                    <!-- Buzzer -->
+                    <tr>
+                        <td class="component-name" rowspan="2">Active Buzzer</td>
+                        <td><span class="pin-badge pin-5v">Positive (+)</span></td>
+                        <td>Pin 16 (GPIO 23)</td>
+                        <td style="color: var(--muted);">Digital Output</td>
+                    </tr>
+                    <tr>
+                        <td><span class="pin-badge pin-gnd">Negative (-)</span></td>
+                        <td>Pin 20 (GND)</td>
+                        <td style="color: var(--muted);">Common Ground</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+    
+    <script>
+        const starsContainer = document.getElementById('stars-container');
+        for (let i = 0; i < 80; i++) {
+            let star = document.createElement('div'); star.className = 'star';
+            star.style.left = Math.random() * 100 + 'vw'; star.style.top = Math.random() * 100 + 'vh';
+            let size = Math.random() * 2 + 1 + 'px'; star.style.width = size; star.style.height = size;
+            star.style.animationDuration = Math.random() * 3 + 2 + 's'; star.style.animationDelay = Math.random() * 5 + 's';
+            starsContainer.appendChild(star);
+        }
+    </script>
+</body>
+</html>
