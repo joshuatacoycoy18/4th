@@ -3,84 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mission Control | GPS Tracker</title>
+    <title>Mission Control | Orbital Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+    <header class="dash-header">
+        <h1><i class="fa-solid fa-satellite"></i> Mission Control</h1>
+        <a href="/" class="btn-home"><i class="fa-solid fa-power-off"></i> Disconnect</a>
+    </header>
+
     <div class="dash-container">
         
-        <header class="dash-header">
-            <h1><i class="fa-solid fa-satellite"></i> GPS Mission Control</h1>
-            <a href="/" class="btn-home"><i class="fa-solid fa-arrow-left"></i> Return to Base</a>
-        </header>
+        <!-- LEFT: MAP -->
+        <div class="panel">
+            <div class="panel-title"><i class="fa-solid fa-map-location-dot"></i> Live Orbital Map</div>
+            <div id="map"></div>
+        </div>
 
-        <div class="grid-layout">
-            <!-- LEFT COLUMN: MAP -->
+        <!-- RIGHT: DATA & CONTROLS -->
+        <div style="display: flex; flex-direction: column; gap: 25px;">
+            
+            <!-- Telemetry Stats -->
             <div class="panel">
-                <div class="panel-title">Live Orbital Map</div>
-                <div id="map"></div>
+                <div class="panel-title"><i class="fa-solid fa-chart-simple"></i> Telemetry Data</div>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-label">Latitude</div>
+                        <div class="stat-val highlight" id="val-lat">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Longitude</div>
+                        <div class="stat-val highlight" id="val-lon">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Altitude</div>
+                        <div class="stat-val" id="val-alt">-- m</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Satellites</div>
+                        <div class="stat-val" id="val-sats">--</div>
+                    </div>
+                </div>
             </div>
 
-            <!-- RIGHT COLUMN: DATA & CONTROLS -->
-            <div style="display: flex; flex-direction: column; gap: 20px;">
-                
-                <!-- Telemetry Data -->
-                <div class="panel">
-                    <div class="panel-title">Live Telemetry</div>
-                    <div class="stats-grid">
-                        <div class="stat-box">
-                            <span class="stat-label">Latitude</span>
-                            <span class="stat-val" id="val-lat">--</span>
-                        </div>
-                        <div class="stat-box">
-                            <span class="stat-label">Longitude</span>
-                            <span class="stat-val" id="val-lon">--</span>
-                        </div>
-                        <div class="stat-box">
-                            <span class="stat-label">Altitude</span>
-                            <span class="stat-val" id="val-alt">-- m</span>
-                        </div>
-                        <div class="stat-box">
-                            <span class="stat-label">Satellites</span>
-                            <span class="stat-val" id="val-sats">--</span>
-                        </div>
+            <!-- Hardware Diagnostics -->
+            <div class="panel">
+                <div class="panel-title"><i class="fa-solid fa-microchip"></i> Diagnostics</div>
+                <div class="hw-grid">
+                    <div class="hw-item" id="hw-led">
+                        <i class="fa-solid fa-lightbulb"></i>
+                        <span>LED</span>
+                    </div>
+                    <div class="hw-item" id="hw-buzzer">
+                        <i class="fa-solid fa-bell"></i>
+                        <span>Buzzer</span>
+                    </div>
+                    <div class="hw-item">
+                        <i class="fa-solid fa-tv"></i>
+                        <span>OLED</span>
+                        <div class="oled-text" id="hw-oled">--</div>
                     </div>
                 </div>
-
-                <!-- Hardware Sim -->
-                <div class="panel">
-                    <div class="panel-title">Hardware Diagnostics</div>
-                    <div class="hw-grid">
-                        <div class="hw-item" id="hw-led">
-                            <i class="fa-solid fa-lightbulb"></i>
-                            <span>LED</span>
-                        </div>
-                        <div class="hw-item" id="hw-buzzer">
-                            <i class="fa-solid fa-bell"></i>
-                            <span>Buzzer</span>
-                        </div>
-                        <div class="hw-item" style="grid-column: span 1;">
-                            <i class="fa-solid fa-tv"></i>
-                            <span>OLED</span>
-                            <div class="oled-text" id="hw-oled">--</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Controls -->
-                <div class="panel">
-                    <div class="panel-title">System Controls</div>
-                    <div class="controls">
-                        <button class="btn-ctrl primary" onclick="centerMap()"><i class="fa-solid fa-crosshairs"></i> Center on Target</button>
-                        <button class="btn-ctrl" onclick="speakLocation()"><i class="fa-solid fa-volume-high"></i> Voice Telemetry</button>
-                    </div>
-                </div>
-
             </div>
+
+            <!-- Controls -->
+            <div class="panel">
+                <div class="panel-title"><i class="fa-solid fa-sliders"></i> Command Center</div>
+                <div class="controls">
+                    <button class="btn-ctrl primary" onclick="centerMap()"><i class="fa-solid fa-crosshairs"></i> Center Target</button>
+                    <button class="btn-ctrl" onclick="speakLocation()"><i class="fa-solid fa-volume-high"></i> Voice Telemetry</button>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -90,7 +87,7 @@
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         L.control.zoom({position: 'bottomright'}).addTo(map);
 
-        // Custom Marker
+        // Custom Glowing Marker
         const gpsIcon = L.divIcon({
             className: 'custom-icon',
             html: '<div style="background:#00f2fe;width:16px;height:16px;border-radius:50%;box-shadow:0 0 20px #00f2fe, 0 0 40px #00f2fe;border:2px solid white;"></div>',
@@ -105,26 +102,27 @@
 
         // --- FETCH DATA ---
         function updateData() {
+            // TANDAAN: /api/gps ang tamang endpoint, hindi /api/data
             fetch('/api/gps')
                 .then(res => res.json())
                 .then(data => {
                     currentLat = data.latitude;
                     currentLon = data.longitude;
 
-                    // Update Text
+                    // Update Text (with formatting)
                     document.getElementById('val-lat').innerText = data.latitude.toFixed(6);
                     document.getElementById('val-lon').innerText = data.longitude.toFixed(6);
                     document.getElementById('val-alt').innerText = data.altitude.toFixed(1) + ' m';
                     document.getElementById('val-sats').innerText = data.satellites;
 
-                    // Update Map
+                    // Update Map Position
                     let newPos = [data.latitude, data.longitude];
                     marker.setLatLng(newPos);
                     map.panTo(newPos);
 
                     // Update Trail
                     pathPoints.push(newPos);
-                    if(pathPoints.length > 100) pathPoints.shift();
+                    if(pathPoints.length > 100) pathPoints.shift(); // Keep trail length manageable
                     polyline.setLatLngs(pathPoints);
 
                     // Update Hardware UI
@@ -149,7 +147,7 @@
 
         function speakLocation() {
             if ('speechSynthesis' in window) {
-                let text = `Target coordinates: Latitude ${currentLat.toFixed(5)}, Longitude ${currentLon.toFixed(5)}.`;
+                let text = `Target coordinates. Latitude ${currentLat.toFixed(5)}, Longitude ${currentLon.toFixed(5)}.`;
                 let utterance = new SpeechSynthesisUtterance(text);
                 speechSynthesis.speak(utterance);
             }
