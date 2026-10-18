@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How It Works | Orbital Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div id="stars-container"></div>
+    <nav class="navbar">
+        <a href="/" class="nav-brand"><i class="fa-solid fa-satellite-dish"></i> ORBITAL TRACKER</a>
+        <div class="nav-links">
+            <a href="/">Home</a>
+            <a href="/how-it-works" class="active">How It Works</a>
+            <a href="/hardware">Hardware</a>
+            <a href="/logs">Logs</a>
+            <a href="/dashboard" class="nav-btn">Launch App</a>
+        </div>
+    </nav>
+    <main class="page-container">
+        <h1 class="page-title">System Architecture</h1>
+        <p class="page-subtitle">From the stratosphere to your screen in milliseconds.</p>
+        <div class="step-card">
+            <h3>01. Satellite Acquisition</h3>
+            <p>Ang NEO-6M GPS module ay kumukuha ng microwave signals mula sa mga orbiting satellites. Ito ay nagko-compute ng latitude, longitude, at altitude gamit ang trilateration method.</p>
+        </div>
+        <div class="step-card">
+            <h3>02. Serial Data Processing</h3>
+            <p>Ang Raspberry Pi ay nakikipag-usap sa GPS module gamit ang UART protocol sa <code>/dev/serial0</code>. Binabasa nito ang NMEA sentences (tulad ng <code>$GPGGA</code>) at kinukuha ang kapaki-pakinabang na data.</p>
+        </div>
+        <div class="step-card">
+            <h3>03. Web Visualization</h3>
+            <p>Ang Flask server ay nagpapadala ng JSON data sa browser. Ang JavaScript (gamit ang Leaflet.js) ay nag-u-update ng mapa at naglalagay ng glowing marker sa totoong lokasyon.</p>
+        </div>
+    </main>
+    <script>
+        const starsContainer = document.getElementById('stars-container');
+        for (let i = 0; i < 80; i++) {
+            let star = document.createElement('div'); star.className = 'star';
+            star.style.left = Math.random() * 100 + 'vw'; star.style.top = Math.random() * 100 + 'vh';
+            let size = Math.random() * 2 + 1 + 'px'; star.style.width = size; star.style.height = size;
+            star.style.animationDuration = Math.random() * 3 + 2 + 's'; star.style.animationDelay = Math.random() * 5 + 's';
+            starsContainer.appendChild(star);
+        }
+    </script>
+</body>
+</html>
