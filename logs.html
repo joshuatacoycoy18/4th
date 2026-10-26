@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mission Logs | Orbital Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fontawesome/css/all.min.css') }}">
 </head>
 <body>
     <div id="stars-container"></div>
@@ -23,14 +23,17 @@
         <h1 class="page-title">Mission Logs</h1>
         <p class="page-subtitle">Historical telemetry data recorded by the system.</p>
         <div class="step-card" style="padding: 20px; border-left-color: var(--cyan);">
-            <table class="log-table">
+            <table class="log-table" style="width: 100%; border-collapse: collapse; text-align: left;">
                 <thead>
-                    <tr>
-                        <th>Time</th><th>Latitude</th><th>Longitude</th><th>Altitude (m)</th>
+                    <tr style="border-bottom: 1px solid rgba(0, 242, 254, 0.3);">
+                        <th style="padding: 15px; font-family: var(--font-title); color: var(--cyan);">Time</th>
+                        <th style="padding: 15px; font-family: var(--font-title); color: var(--cyan);">Latitude</th>
+                        <th style="padding: 15px; font-family: var(--font-title); color: var(--cyan);">Longitude</th>
+                        <th style="padding: 15px; font-family: var(--font-title); color: var(--cyan);">Altitude (m)</th>
                     </tr>
                 </thead>
                 <tbody id="log-body">
-                    <tr><td colspan="4" style="text-align: center;">Loading logs...</td></tr>
+                    <tr><td colspan="4" style="text-align: center; padding: 20px;">Loading logs...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -50,17 +53,16 @@
                 const tbody = document.getElementById('log-body');
                 tbody.innerHTML = '';
                 
-                // Check if history exists and has data
                 if (!data.history || data.history.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--muted);">No logs recorded yet. Waiting for GPS data...</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--muted);">No logs recorded yet. Waiting for GPS data...</td></tr>';
                     return;
                 }
 
-                // Show newest logs first
                 const reversedHistory = [...data.history].reverse();
                 reversedHistory.forEach(log => {
                     let tr = document.createElement('tr');
-                    tr.innerHTML = `<td style="color: var(--cyan); font-family: monospace;">${log.time}</td><td>${log.lat}</td><td>${log.lon}</td><td>${log.alt}</td>`;
+                    tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+                    tr.innerHTML = `<td style="padding: 15px; color: var(--cyan); font-family: monospace;">${log.time}</td><td style="padding: 15px;">${log.lat}</td><td style="padding: 15px;">${log.lon}</td><td style="padding: 15px;">${log.alt}</td>`;
                     tbody.appendChild(tr);
                 });
             }).catch(e => console.error(e));
