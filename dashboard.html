@@ -4,12 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mission Control | Orbital Tracker</title>
+    
+    <!-- LOCAL CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fontawesome/css/all.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+    
+    <!-- LOCAL JS -->
+    <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.js') }}"></script>
 </head>
 <body style="overflow-y: auto;">
     
@@ -82,7 +86,6 @@
                 </div>
             </div>
 
-            <!-- System Health (Walang RAM) -->
             <div class="panel">
                 <div class="panel-title"><i class="fa-solid fa-server"></i> System Health</div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center;">
